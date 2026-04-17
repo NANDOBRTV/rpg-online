@@ -12,19 +12,17 @@ app.use(express.static("public"));
 
 let players = {};
 
-function newPlayer(id) {
+function createPlayer(id) {
     return {
         id,
         x: Math.floor(Math.random() * 300),
         y: Math.floor(Math.random() * 500),
-        color: "lime"
+        hp: 100
     };
 }
 
 io.on("connection", (socket) => {
-    console.log("Player conectado:", socket.id);
-
-    players[socket.id] = newPlayer(socket.id);
+    players[socket.id] = createPlayer(socket.id);
 
     io.emit("updatePlayers", players);
 
@@ -38,6 +36,31 @@ io.on("connection", (socket) => {
         if (dir.down) p.y += speed;
         if (dir.left) p.x -= speed;
         if (dir.right) p.x += speed;
+
+        io.emit("updatePlayers", players);
+    });
+
+    socket.on("attack", () => {
+        let attacker = players[socket.id];
+        if (!attacker) return;
+
+        for (let id in players) {
+            if (id !== socket.id) {
+                let target = players[id];
+
+                let dx = attacker.x - target.x;
+                let dy = attacker.y - target.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 60) {
+                    target.hp -= 20;
+                }
+
+                if (target.hp <= 0) {
+                    players[id] = createPlayer(id);
+                }
+            }
+        }
 
         io.emit("updatePlayers", players);
     });
