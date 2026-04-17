@@ -1,8 +1,13 @@
 const express = require("express");
 const app = express();
-const http = require("http").createServer(app);
+const http = require("http");
+const server = http.createServer(app);
 const { Server } = require("socket.io");
-const io = new Server(http);
+const io = new Server(server, {
+    cors: {
+        origin: "*"
+    }
+});
 
 app.use(express.static("public"));
 
@@ -13,10 +18,6 @@ io.on("connection", (socket) => {
 
     players[socket.id] = { x: 100, y: 100 };
 
-    // manda todos os jogadores para quem entrou
-    socket.emit("currentPlayers", players);
-
-    // atualiza geral
     io.emit("updatePlayers", players);
 
     socket.on("move", (data) => {
@@ -35,6 +36,6 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log("Servidor rodando na porta " + PORT);
 });
