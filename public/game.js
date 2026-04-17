@@ -33,7 +33,7 @@ document.getElementById("down").ontouchstart = () => sendMove(false, true, false
 document.getElementById("left").ontouchstart = () => sendMove(false, false, true, false);
 document.getElementById("right").ontouchstart = () => sendMove(false, false, false, true);
 
-document.getElementById("attack").ontouchstart = () => {
+document.getElementById("attack").ontouchstart = () => socket.emit("attack");
     console.log("Ataque!");
 };
 
