@@ -1,4 +1,4 @@
-const socket = io();
+const socket = io(window.location.origin);
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -7,14 +7,6 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 let players = {};
-
-socket.on("connect", () => {
-    console.log("Conectado ao servidor:", socket.id);
-});
-
-socket.on("currentPlayers", (data) => {
-    players = data;
-});
 
 socket.on("updatePlayers", (data) => {
     players = data;
