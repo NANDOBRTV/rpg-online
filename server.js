@@ -1,7 +1,8 @@
 const express = require("express");
 const app = express();
 const http = require("http").createServer(app);
-const io = require("socket.io")(http);
+const { Server } = require("socket.io");
+const io = new Server(http);
 
 app.use(express.static("public"));
 
@@ -12,16 +13,19 @@ io.on("connection", (socket) => {
 
     players[socket.id] = { x: 100, y: 100 };
 
+    // manda todos os jogadores para quem entrou
     socket.emit("currentPlayers", players);
+
+    // atualiza geral
     io.emit("updatePlayers", players);
 
     socket.on("move", (data) => {
-        if (players[socket.id]) {
-            players[socket.id].x += data.x;
-            players[socket.id].y += data.y;
+        if (!players[socket.id]) return;
 
-            io.emit("updatePlayers", players);
-        }
+        players[socket.id].x += data.x;
+        players[socket.id].y += data.y;
+
+        io.emit("updatePlayers", players);
     });
 
     socket.on("disconnect", () => {
