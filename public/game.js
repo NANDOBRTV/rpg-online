@@ -8,6 +8,10 @@ canvas.height = window.innerHeight;
 
 let players = {};
 
+socket.on("connect", () => {
+    console.log("Conectado ao servidor:", socket.id);
+});
+
 socket.on("currentPlayers", (data) => {
     players = data;
 });
@@ -31,7 +35,7 @@ function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     for (let id in players) {
-        ctx.fillStyle = "green";
+        ctx.fillStyle = "lime";
         ctx.fillRect(players[id].x, players[id].y, 30, 30);
     }
 
