@@ -1,61 +1,108 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<title>RPG Mobile</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon-Grid Strider | OS</title>
+    <style>
+        /* 1. RESET E FUNDO */
+        * { box-sizing: border-box; }
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background-color: #020202;
+            font-family: 'Segoe UI', 'Courier New', monospace;
+        }
 
-<style>
-    body {
-        margin: 0;
-        overflow: hidden;
-        background: #1a1a1a;
-        touch-action: none;
-    }
+        /* 2. EFEITO DE SCANLINES (TELA RETRÔ) */
+        body::before {
+            content: " ";
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
+            z-index: 100;
+            pointer-events: none;
+            opacity: 0.3;
+        }
 
-    canvas {
-        display: block;
-    }
+        /* 3. O CANVAS */
+        #gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            filter: contrast(120%) brightness(110%);
+        }
 
-    .btn {
-        position: absolute;
-        width: 70px;
-        height: 70px;
-        background: rgba(255,255,255,0.2);
-        border: 2px solid white;
-        border-radius: 10px;
-        color: white;
-        font-size: 20px;
-        text-align: center;
-        line-height: 70px;
-        user-select: none;
-    }
+        /* 4. HUD CIBERNÉTICA */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 10;
+        }
 
-    #up { bottom: 160px; left: 80px; }
-    #down { bottom: 20px; left: 80px; }
-    #left { bottom: 90px; left: 10px; }
-    #right { bottom: 90px; left: 150px; }
+        .hud-panel {
+            background: rgba(0, 20, 20, 0.6);
+            border-left: 4px solid #00f2ff;
+            padding: 10px 15px;
+            color: #00f2ff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 0.8rem;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+        }
 
-    #attack {
-        right: 20px;
-        bottom: 60px;
-        background: rgba(255,0,0,0.3);
-    }
-</style>
+        .stats { display: flex; gap: 20px; }
+        .energy-bar {
+            width: 120px; height: 8px;
+            background: #003333;
+            margin-top: 5px;
+            border: 1px solid #00f2ff;
+        }
+        .energy-fill {
+            width: 75%; height: 100%;
+            background: #00f2ff;
+            box-shadow: 0 0 8px #00f2ff;
+        }
 
+        #terminal {
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            color: #008888;
+        }
+    </style>
 </head>
 <body>
 
-<canvas id="game"></canvas>
+    <div id="ui-layer">
+        <div class="hud-panel">
+            <div class="stats">
+                <div>[ NODE: <span id="status-text">CONNECTING</span> ]</div>
+                <div>[ LATENCY: <span id="ping">0</span>ms ]</div>
+            </div>
+            <div class="energy-bar"><div class="energy-fill"></div></div>
+        </div>
 
-<div id="up" class="btn">↑</div>
-<div id="down" class="btn">↓</div>
-<div id="left" class="btn">←</div>
-<div id="right" class="btn">→</div>
+        <div id="terminal">
+            <div>> INITIALIZING NEURAL LINK...</div>
+            <div>> SYSTEM_DEATH_GRID V.2.0.26</div>
+            <div id="logs">> WAITING FOR DATA...</div>
+        </div>
+    </div>
 
-<div id="attack" class="btn">⚔</div>
+    <canvas id="gameCanvas"></canvas>
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="game.js"></script>
-
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="game.js"></script>
 </body>
 </html>
