@@ -1,14 +1,61 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
-    <title>RPG Online</title>
+<meta charset="UTF-8">
+<title>RPG Mobile</title>
+
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: #1a1a1a;
+        touch-action: none;
+    }
+
+    canvas {
+        display: block;
+    }
+
+    .btn {
+        position: absolute;
+        width: 70px;
+        height: 70px;
+        background: rgba(255,255,255,0.2);
+        border: 2px solid white;
+        border-radius: 10px;
+        color: white;
+        font-size: 20px;
+        text-align: center;
+        line-height: 70px;
+        user-select: none;
+    }
+
+    #up { bottom: 160px; left: 80px; }
+    #down { bottom: 20px; left: 80px; }
+    #left { bottom: 90px; left: 10px; }
+    #right { bottom: 90px; left: 150px; }
+
+    #attack {
+        right: 20px;
+        bottom: 60px;
+        background: rgba(255,0,0,0.3);
+    }
+</style>
+
 </head>
 <body>
-    <h2>Jogo carregando...</h2>
 
-    <canvas id="game"></canvas>
+<canvas id="game"></canvas>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="game.js"></script>
+<div id="up" class="btn">↑</div>
+<div id="down" class="btn">↓</div>
+<div id="left" class="btn">←</div>
+<div id="right" class="btn">→</div>
+
+<div id="attack" class="btn">⚔</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="game.js"></script>
+
 </body>
 </html>
