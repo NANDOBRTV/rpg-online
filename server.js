@@ -4,24 +4,40 @@ const http = require("http");
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 
-const io = new Server(server);
+const io = new Server(server, {
+    cors: { origin: "*" }
+});
 
 app.use(express.static("public"));
 
 let players = {};
 
-io.on("connection", (socket) => {
-    console.log("Jogador conectado:", socket.id);
+function newPlayer(id) {
+    return {
+        id,
+        x: Math.floor(Math.random() * 300),
+        y: Math.floor(Math.random() * 500),
+        color: "lime"
+    };
+}
 
-    players[socket.id] = { x: 100, y: 100 };
+io.on("connection", (socket) => {
+    console.log("Player conectado:", socket.id);
+
+    players[socket.id] = newPlayer(socket.id);
 
     io.emit("updatePlayers", players);
 
-    socket.on("move", (data) => {
-        if (!players[socket.id]) return;
+    socket.on("move", (dir) => {
+        let p = players[socket.id];
+        if (!p) return;
 
-        players[socket.id].x += data.x;
-        players[socket.id].y += data.y;
+        const speed = 6;
+
+        if (dir.up) p.y -= speed;
+        if (dir.down) p.y += speed;
+        if (dir.left) p.x -= speed;
+        if (dir.right) p.x += speed;
 
         io.emit("updatePlayers", players);
     });
