@@ -10,10 +10,15 @@ let players = {};
 io.on("connection", (socket) => {
     players[socket.id] = { x: 100, y: 100 };
 
+    socket.emit("currentPlayers", players);
+    socket.broadcast.emit("newPlayer", players[socket.id]);
+
     socket.on("move", (data) => {
-        players[socket.id].x += data.x;
-        players[socket.id].y += data.y;
-        io.emit("updatePlayers", players);
+        if (players[socket.id]) {
+            players[socket.id].x += data.x;
+            players[socket.id].y += data.y;
+            io.emit("updatePlayers", players);
+        }
     });
 
     socket.on("disconnect", () => {
@@ -22,4 +27,7 @@ io.on("connection", (socket) => {
     });
 });
 
-http.listen(3000);
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, () => {
+    console.log("Servidor rodando na porta " + PORT);
+});
