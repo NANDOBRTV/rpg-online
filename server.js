@@ -1,129 +1,89 @@
-const express = require("express");
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
+
+// 1. Configurações Iniciais
 const app = express();
-const http = require("http");
 const server = http.createServer(app);
-const { Server } = require("socket.io");
-
-const io = new Server(server, {
-    cors: { origin: "*" }
-});
-
-app.use(express.static("public"));
-
-// ======================
-// CONFIG DO JOGO
-// ======================
-const MAP_SIZE = 1000;
-const ATTACK_RANGE = 60;
-const ATTACK_DAMAGE = 20;
-const COOLDOWN_TIME = 1000; // 1s
-
-let players = {};
-
-// ======================
-// CRIAR PLAYER
-// ======================
-function createPlayer(id) {
-    return {
-        id,
-        name: "Player_" + id.slice(0, 5),
-        x: Math.floor(Math.random() * MAP_SIZE),
-        y: Math.floor(Math.random() * MAP_SIZE),
-        hp: 100,
-        canAttack: true
-    };
-}
-
-// ======================
-// LIMITAR MAPA
-// ======================
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-}
-
-// ======================
-// CONEXÃO
-// ======================
-io.on("connection", (socket) => {
-    console.log("Conectou:", socket.id);
-
-    players[socket.id] = createPlayer(socket.id);
-
-    io.emit("updatePlayers", players);
-
-    // ======================
-    // MOVIMENTO
-    // ======================
-    socket.on("move", (dir) => {
-        let p = players[socket.id];
-        if (!p) return;
-
-        const speed = 5;
-
-        if (dir.up) p.y -= speed;
-        if (dir.down) p.y += speed;
-        if (dir.left) p.x -= speed;
-        if (dir.right) p.x += speed;
-
-        // limitar mapa
-        p.x = clamp(p.x, 0, MAP_SIZE);
-        p.y = clamp(p.y, 0, MAP_SIZE);
-
-        io.emit("updatePlayers", players);
-    });
-
-    // ======================
-    // ATAQUE COM COOLDOWN
-    // ======================
-    socket.on("attack", () => {
-        let attacker = players[socket.id];
-        if (!attacker || !attacker.canAttack) return;
-
-        attacker.canAttack = false;
-
-        setTimeout(() => {
-            if (attacker) attacker.canAttack = true;
-        }, COOLDOWN_TIME);
-
-        for (let id in players) {
-            if (id === socket.id) continue;
-
-            let target = players[id];
-
-            let dx = attacker.x - target.x;
-            let dy = attacker.y - target.y;
-            let dist = Math.sqrt(dx * dx + dy * dy);
-
-            if (dist < ATTACK_RANGE) {
-                target.hp -= ATTACK_DAMAGE;
-            }
-
-            // respawn
-            if (target.hp <= 0) {
-                players[id] = createPlayer(id);
-            }
-        }
-
-        io.emit("updatePlayers", players);
-    });
-
-    // ======================
-    // DESCONECTAR
-    // ======================
-    socket.on("disconnect", () => {
-        delete players[socket.id];
-        io.emit("updatePlayers", players);
-    });
-});
-
-// ======================
-// PORTA
-// ======================
+const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 
-// ======================
-// START
-// ======================
-server.listen(PORT, "0.0.0.0", () => {
-    console.log("Servidor rodando na porta " + PORT);
+// 2. Configuração do Banco de Dados SQLite
+const db = new sqlite3.Database('./neon_grid.db', (err) => {
+    if (err) console.error('Erro ao abrir banco:', err.message);
+    console.log('Conectado ao banco de dados SQLite.');
+});
+
+// Criar tabela de jogadores se não existir
+db.run(`CREATE TABLE IF NOT EXISTS players (
+    id TEXT PRIMARY KEY,
+    username TEXT,
+    x REAL DEFAULT 400,
+    y REAL DEFAULT 300,
+    color TEXT
+)`);
+
+// 3. Middlewares e Arquivos Estáticos
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 4. Lógica de Comunicação Real-time (Socket.io)
+let activePlayers = {};
+
+io.on('connection', (socket) => {
+    console.log(`[CONEXÃO] Novo dispositivo conectado: ${socket.id}`);
+
+    // Quando o jogador entra no jogo via navegador
+    socket.on('join_game', (data) => {
+        const playerColor = data.color || '#' + Math.floor(Math.random()*16777215).toString(16);
+        
+        activePlayers[socket.id] = {
+            id: socket.id,
+            username: data.username || `Runner_${socket.id.substring(0, 4)}`,
+            x: 400,
+            y: 300,
+            color: playerColor
+        };
+
+        // Salva/Atualiza no Banco de Dados
+        db.run(`INSERT OR REPLACE INTO players (id, username, x, y, color) VALUES (?, ?, ?, ?, ?)`, 
+            [socket.id, activePlayers[socket.id].username, 400, 300, playerColor]);
+
+        // Envia o estado atual para o novo jogador e avisa os outros
+        socket.emit('current_players', activePlayers);
+        socket.broadcast.emit('new_player', activePlayers[socket.id]);
+    });
+
+    // Atualização de movimento vinda do navegador
+    socket.on('player_movement', (movementData) => {
+        if (activePlayers[socket.id]) {
+            activePlayers[socket.id].x = movementData.x;
+            activePlayers[socket.id].y = movementData.y;
+            
+            // Broadcast otimizado para todos os outros
+            socket.broadcast.emit('player_moved', activePlayers[socket.id]);
+        }
+    });
+
+    // Tratamento de desconexão
+    socket.on('disconnect', () => {
+        console.log(`[DESCONEXÃO] Dispositivo saiu: ${socket.id}`);
+        if (activePlayers[socket.id]) {
+            // Persistir posição final antes de remover da memória
+            db.run(`UPDATE players SET x = ?, y = ? WHERE id = ?`, 
+                [activePlayers[socket.id].x, activePlayers[socket.id].y, socket.id]);
+            
+            delete activePlayers[socket.id];
+            io.emit('player_disconnected', socket.id);
+        }
+    });
+});
+
+// 5. Inicialização do Servidor
+server.listen(PORT, () => {
+    console.log(`-------------------------------------------`);
+    console.log(`SERVIDOR ONLINE: http://localhost:${PORT}`);
+    console.log(`DEPLOY RENDER: Verifique o link do dashboard`);
+    console.log(`-------------------------------------------`);
 });
