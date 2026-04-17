@@ -4,18 +4,14 @@ const http = require("http");
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 
-const io = new Server(server, {
-    cors: {
-        origin: "*"
-    }
-});
+const io = new Server(server);
 
 app.use(express.static("public"));
 
 let players = {};
 
 io.on("connection", (socket) => {
-    console.log("Conectou:", socket.id);
+    console.log("Jogador conectado:", socket.id);
 
     players[socket.id] = { x: 100, y: 100 };
 
@@ -36,8 +32,8 @@ io.on("connection", (socket) => {
     });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
     console.log("Servidor rodando na porta " + PORT);
 });
