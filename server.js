@@ -8,15 +8,18 @@ app.use(express.static("public"));
 let players = {};
 
 io.on("connection", (socket) => {
+    console.log("Jogador conectado:", socket.id);
+
     players[socket.id] = { x: 100, y: 100 };
 
     socket.emit("currentPlayers", players);
-    socket.broadcast.emit("newPlayer", players[socket.id]);
+    io.emit("updatePlayers", players);
 
     socket.on("move", (data) => {
         if (players[socket.id]) {
             players[socket.id].x += data.x;
             players[socket.id].y += data.y;
+
             io.emit("updatePlayers", players);
         }
     });
