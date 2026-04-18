@@ -12,6 +12,10 @@ spriteSheet.onload = () => { spriteLoaded = true; };
 let players = {};
 let myId = null;
 
+// Controle de Animação
+let frame = 0;
+let frameDelay = 0;
+
 // Joystick
 const joy = { active: false, baseX: 0, baseY: 0, vx: 0, vy: 0 };
 let moveTouchId = null;
@@ -43,7 +47,6 @@ canvas.addEventListener('touchmove', (e) => {
             joy.vx = dx/50;
             joy.vy = dy/50;
 
-            // Envia a posição nova para o servidor
             if (myId && players[myId]) {
                 socket.emit('player_movement', {
                     x: players[myId].x + joy.vx * 6,
@@ -58,46 +61,55 @@ canvas.addEventListener('touchend', () => {
     joy.active = false; joy.vx = 0; joy.vy = 0; moveTouchId = null;
 });
 
-// --- DESENHO FIXO (SEM GIRAR) ---
+// --- DESENHO COM ANIMAÇÃO DE CAMINHADA ---
 function drawPlayer(p) {
     if (!spriteLoaded) return;
 
-    // Tamanho do recorte (baseado no seu SpriteSheet 4x7)
+    let isMe = (p.id === myId);
+    
+    // Verifica se o personagem está se movendo (velocidade maior que 0.1)
+    let isMoving = isMe ? (Math.abs(joy.vx) > 0.1 || Math.abs(joy.vy) > 0.1) : false;
+
     let frameW = spriteSheet.width / 4;
     let frameH = spriteSheet.height / 7;
 
+    // LÓGICA DE ANIMAÇÃO:
+    // Se estiver movendo, usamos a LINHA 1 (Walk). Se parado, LINHA 0 (Idle).
+    let row = isMoving ? 1 : 0; 
+
+    if (isMoving) {
+        frameDelay++;
+        if (frameDelay > 8) { // Velocidade da troca de passos
+            frame = (frame + 1) % 4; // Alterna entre os 4 bonecos da linha
+            frameDelay = 0;
+        }
+    } else {
+        frame = 0; // Volta para o frame inicial quando para
+    }
+
     ctx.save();
-    
-    // Move o "pincel" para a posição do boneco no mapa
     ctx.translate(p.x, p.y);
-    
-    // REMOVI O SCALE: O boneco agora vai ficar sempre virado para frente
-    // assim ele para de girar como um pião.
 
     ctx.drawImage(
         spriteSheet,
-        0, 0,           // Pega o primeiro boneco da folha
-        frameW, frameH, // Tamanho do corte
-        -24, -24,       // Centraliza no ponto do jogador
-        48, 48          // Tamanho final na tela
+        frame * frameW, row * frameH, // Recorta o frame e a linha certos
+        frameW, frameH,
+        -24, -24,
+        48, 48
     );
 
     ctx.restore();
 }
 
 function gameLoop() {
-    // Fundo Verde (Grama)
     ctx.fillStyle = "#2d8a45"; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (myId && players[myId]) {
         let me = players[myId];
-
         ctx.save();
-        // A CÂMERA: Segue o jogador para ele caminhar pelo mapa
         ctx.translate(canvas.width/2 - me.x, canvas.height/2 - me.y);
 
-        // Desenha todos os jogadores
         for (let id in players) {
             drawPlayer(players[id]);
         }
