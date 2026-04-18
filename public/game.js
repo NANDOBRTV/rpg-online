@@ -7,22 +7,26 @@ const socket = io();
 let players = {};
 let myId = null;
 
-// Configurações do Joystick
+// CONFIGURAÇÕES DO JOYSTICK FIXO
 const joy = {
     active: false,
-    baseX: 0,
-    baseY: 0,
-    currX: 0,
+    baseX: 100, // Posição X fixa (distância da esquerda)
+    baseY: 0,   // Será definida no resize (distância do fundo)
+    currX: 100,
     currY: 0,
-    size: 60,
-    limit: 50,
-    vx: 0, // Velocidade X calculada
-    vy: 0  // Velocidade Y calculada
+    size: 80,   // Aumentado para facilitar o toque
+    limit: 70,  // Área de movimento do manche aumentada
+    vx: 0,
+    vy: 0
 };
 
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    // Fixa o joystick 100px acima do final da tela
+    joy.baseY = canvas.height - 120;
+    joy.currX = joy.baseX;
+    joy.currY = joy.baseY;
 }
 window.addEventListener('resize', resize);
 resize();
@@ -36,18 +40,16 @@ socket.on('update_players', (serverPlayers) => {
     players = serverPlayers;
 });
 
-// EVENTOS DE TOQUE (MOBILE)
+// LÓGICA DE TOQUE PARA JOYSTICK FIXO
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
     const t = e.touches[0];
     
-    // Ativa o joystick onde você tocar (lado esquerdo)
-    if (t.clientX < canvas.width / 2) {
+    // Verifica se o toque foi na área do joystick fixo (com uma margem de erro)
+    const dist = Math.sqrt(Math.pow(t.clientX - joy.baseX, 2) + Math.pow(t.clientY - joy.baseY, 2));
+    
+    if (dist < joy.size + 50) {
         joy.active = true;
-        joy.baseX = t.clientX;
-        joy.baseY = t.clientY;
-        joy.currX = t.clientX;
-        joy.currY = t.clientY;
     }
 }, { passive: false });
 
@@ -56,7 +58,6 @@ canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
     const t = e.touches[0];
 
-    // Cálculo de distância do centro do analógico
     let dx = t.clientX - joy.baseX;
     let dy = t.clientY - joy.baseY;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -69,60 +70,58 @@ canvas.addEventListener('touchmove', (e) => {
     joy.currX = joy.baseX + dx;
     joy.currY = joy.baseY + dy;
 
-    // Transforma a posição do analógico em velocidade (-1 a 1)
     joy.vx = dx / joy.limit;
     joy.vy = dy / joy.limit;
 }, { passive: false });
 
 canvas.addEventListener('touchend', () => {
     joy.active = false;
+    joy.currX = joy.baseX;
+    joy.currY = joy.baseY;
     joy.vx = 0;
     joy.vy = 0;
 });
 
-// LOOP DE ATUALIZAÇÃO (Envia movimento constante para o servidor)
+// LOOP DE MOVIMENTO (VELOCIDADE AUMENTADA)
 setInterval(() => {
     if (myId && players[myId] && (joy.vx !== 0 || joy.vy !== 0)) {
-        const speed = 7; // Velocidade de movimento
+        const speed = 12; // Aumentado de 7 para 12 para ser mais rápido
         const newX = players[myId].x + joy.vx * speed;
         const newY = players[myId].y + joy.vy * speed;
 
-        // Envia a nova posição calculada, não a posição do dedo
         socket.emit('player_movement', { x: newX, y: newY });
-        debugDisplay.innerText = `MOVING: ${Math.round(joy.vx * 100)}%`;
     }
-}, 30); // 30ms para um movimento suave
+}, 20); // Intervalo menor para maior fluidez
 
 // MOTOR DE DESENHO
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpa tela
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Desenha o Grid
+    // Grid de Fundo
     ctx.strokeStyle = '#111';
-    for(let x=0; x<canvas.width; x+=40) {
+    for(let x=0; x<canvas.width; x+=50) {
         ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke();
     }
-    for(let y=0; y<canvas.height; y+=40) {
+    for(let y=0; y<canvas.height; y+=50) {
         ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
     }
 
-    // Desenha Joystick
-    if (joy.active) {
-        // Base
-        ctx.beginPath();
-        ctx.arc(joy.baseX, joy.baseY, joy.size, 0, Math.PI*2);
-        ctx.strokeStyle = 'rgba(0, 242, 255, 0.3)';
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        
-        // Alavanca (Stick)
-        ctx.beginPath();
-        ctx.arc(joy.currX, joy.currY, 25, 0, Math.PI*2);
-        ctx.fillStyle = 'rgba(0, 242, 255, 0.6)';
-        ctx.fill();
-    }
+    // DESENHAR JOYSTICK FIXO
+    // Base externa (aro)
+    ctx.beginPath();
+    ctx.arc(joy.baseX, joy.baseY, joy.size, 0, Math.PI*2);
+    ctx.strokeStyle = joy.active ? '#00f2ff' : '#004444';
+    ctx.lineWidth = 3;
+    ctx.stroke();
 
-    // Desenha Jogadores
+    // Manche (parte móvel)
+    ctx.beginPath();
+    ctx.arc(joy.currX, joy.currY, 35, 0, Math.PI*2);
+    ctx.fillStyle = joy.active ? 'rgba(0, 242, 255, 0.5)' : 'rgba(0, 242, 255, 0.2)';
+    ctx.fill();
+
+    // Desenhar Jogadores
     for (let id in players) {
         const p = players[id];
         ctx.fillStyle = p.color;
@@ -130,12 +129,12 @@ function draw() {
         ctx.shadowColor = p.color;
         
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 15, 0, Math.PI*2);
+        ctx.arc(p.x, p.y, 18, 0, Math.PI*2);
         ctx.fill();
 
         if (id === myId) {
             ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 3;
             ctx.stroke();
         }
         ctx.shadowBlur = 0;
