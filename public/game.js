@@ -1,99 +1,121 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const statusDisplay = document.getElementById('status');
-const debugDisplay = document.getElementById('debug');
 const socket = io();
 
 let players = {};
 let myId = null;
 
-// 1. AJUSTE DINÂMICO DE TELA (Mobile Responsiveness)
+// Configurações do Joystick
+const joystick = {
+    active: false,
+    baseX: 100,
+    baseY: 0,
+    currX: 100,
+    currY: 0,
+    size: 50,
+    maxLimit: 40
+};
+
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    joystick.baseY = canvas.height - 100; // Posiciona no canto inferior
+    joystick.currY = joystick.baseY;
 }
 window.addEventListener('resize', resize);
 resize();
 
-// 2. CONEXÃO COM O SERVIDOR RENDER
 socket.on('connect', () => {
     myId = socket.id;
     statusDisplay.innerText = "ONLINE";
-    statusDisplay.style.color = "#00f2ff";
 });
 
 socket.on('update_players', (serverPlayers) => {
     players = serverPlayers;
 });
 
-// 3. CONTROLE TOUCH (Otimizado para Mobile)
-function handleInput(e) {
-    // Impede que o navegador arraste a página para baixo enquanto você joga
-    if (e.type === 'touchstart') e.preventDefault();
+// LÓGICA DO JOYSTICK (TOQUE)
+canvas.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    // Só ativa se tocar no lado esquerdo da tela
+    if (t.clientX < canvas.width / 2) {
+        joystick.active = true;
+        joystick.baseX = t.clientX;
+        joystick.baseY = t.clientY;
+        joystick.currX = t.clientX;
+        joystick.currY = t.clientY;
+    }
+}, { passive: false });
 
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    // Envia a coordenada do toque para o servidor
-    socket.emit('player_movement', { x: clientX, y: clientY });
-    
-    // Atualiza o HUD no topo
-    debugDisplay.innerText = `X:${Math.round(clientX)} Y:${Math.round(clientY)}`;
-}
+canvas.addEventListener('touchmove', (e) => {
+    if (!joystick.active) return;
+    e.preventDefault();
+    const t = e.touches[0];
 
-// Escuta tanto clique quanto toque físico na tela do celular
-canvas.addEventListener('mousedown', handleInput);
-canvas.addEventListener('touchstart', handleInput, { passive: false });
-canvas.addEventListener('touchmove', handleInput, { passive: false });
+    // Calcula a distância do centro
+    let dx = t.clientX - joystick.baseX;
+    let dy = t.clientY - joystick.baseY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
 
-// 4. MOTOR DE RENDERIZAÇÃO
+    // Limita o movimento do analógico
+    if (dist > joystick.maxLimit) {
+        dx = (dx / dist) * joystick.maxLimit;
+        dy = (dy / dist) * joystick.maxLimit;
+    }
+
+    joystick.currX = joystick.baseX + dx;
+    joystick.currY = joystick.baseY + dy;
+
+    // Move o jogador continuamente na direção do joystick
+    if (players[myId]) {
+        const speed = 5;
+        socket.emit('player_movement', {
+            x: players[myId].x + (dx / joystick.maxLimit) * speed,
+            y: players[myId].y + (dy / joystick.maxLimit) * speed
+        });
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+    joystick.active = false;
+});
+
 function draw() {
-    // Fundo Preto com rastro (Motion Blur)
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Desenha o Grid de Fundo (Estilo Tron)
-    ctx.strokeStyle = '#001a1a';
-    ctx.lineWidth = 1;
-    for(let x=0; x<canvas.width; x+=40) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-    }
-    for(let y=0; y<canvas.height; y+=40) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    // Desenha Joystick se estiver ativo
+    if (joystick.active) {
+        ctx.strokeStyle = 'rgba(0, 242, 255, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(joystick.baseX, joystick.baseY, joystick.size, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(0, 242, 255, 0.8)';
+        ctx.beginPath();
+        ctx.arc(joystick.currX, joystick.currY, 20, 0, Math.PI * 2);
+        ctx.fill();
     }
 
-    // Desenha os Jogadores
+    // Desenha Jogadores
     for (let id in players) {
         const p = players[id];
-        
-        // Efeito de Brilho Neon
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 15;
         ctx.shadowColor = p.color;
         ctx.fillStyle = p.color;
 
-        // Se for o SEU personagem, ele terá uma borda branca para destaque
+        // Desenha o Avatar
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 15, 0, Math.PI * 2);
+        ctx.fill();
+
         if (id === myId) {
             ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 22, 0, Math.PI * 2);
             ctx.stroke();
         }
-
-        // Desenha um Losango Tecnológico
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y - 18);
-        ctx.lineTo(p.x + 18, p.y);
-        ctx.lineTo(p.x, p.y + 18);
-        ctx.lineTo(p.x - 18, p.y);
-        ctx.closePath();
-        ctx.fill();
-        
-        ctx.shadowBlur = 0; // Limpa o brilho para o próximo
     }
-
     requestAnimationFrame(draw);
 }
-
-// Inicia o loop do jogo
 draw();
