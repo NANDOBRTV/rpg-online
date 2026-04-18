@@ -6,27 +6,36 @@ const spriteSheet = new Image();
 spriteSheet.src = "./assets/Actor/Character/Boy/SpriteSheet.png";
 
 let players = {}, myId = null;
-let lastDir = 1; // 1 = Direita, -1 = Esquerda
+let lastDir = 1;
+let lastTs = 0;
+let lastEmitTime = 0;
+const EMIT_INTERVAL = 50;
 
-// --- CORREÇÃO 1: Estado de animação por jogador (não mais global) ---
-const animState = {}; // { [id]: { frame, frameDelay } }
+// Posição local do jogador (atualizada imediatamente, sem esperar servidor)
+let localX = 0, localY = 0;
 
+const animState = {};
 function getAnim(id) {
     if (!animState[id]) animState[id] = { frame: 0, frameDelay: 0 };
     return animState[id];
 }
 
-// --- CORREÇÃO 2: Delta time para movimento independente de framerate ---
-let lastTs = 0;
-
 const joy = { active: false, baseX: 0, baseY: 0, vx: 0, vy: 0 };
 
-// --- CORREÇÃO 3: Rate limiting do socket (20x/s em vez de 60x/s) ---
-let lastEmitTime = 0;
-const EMIT_INTERVAL = 50; // ms → 20 vezes por segundo
-
 socket.on('connect', () => { myId = socket.id; });
-socket.on('update_world', data => { players = data.players; });
+
+socket.on('update_world', data => {
+    players = data.players;
+    // Sincroniza posição local com o servidor só se houver diferença grande (anti-cheat / correção)
+    if (myId && players[myId]) {
+        const me = players[myId];
+        const dx = me.x - localX, dy = me.y - localY;
+        if (Math.sqrt(dx*dx + dy*dy) > 100) {
+            localX = me.x;
+            localY = me.y;
+        }
+    }
+});
 
 // --- CONTROLES TOUCH ---
 canvas.addEventListener('touchstart', e => {
@@ -43,8 +52,8 @@ canvas.addEventListener('touchmove', e => {
     const t = e.targetTouches[0];
     if (joy.active) {
         let dx = t.clientX - joy.baseX, dy = t.clientY - joy.baseY;
-        let dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > 50) { dx *= 50 / dist; dy *= 50 / dist; }
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist > 50) { dx *= 50/dist; dy *= 50/dist; }
         joy.vx = dx / 50;
         joy.vy = dy / 50;
         if (Math.abs(joy.vx) > 0.1) lastDir = joy.vx > 0 ? 1 : -1;
@@ -57,23 +66,24 @@ canvas.addEventListener('touchend', () => {
     joy.vy = 0;
 });
 
-// --- LÓGICA DE DESENHO ---
+// --- DESENHO ---
 function drawPlayer(p) {
-    // CORREÇÃO 1: spriteSheet.complete verificado apenas aqui como fallback
-    // (o gameLoop só inicia após onload, então raramente será false)
     if (!spriteSheet.complete) return;
 
-    const cols = 4;
-    const rows = 7;
+    const cols = 4, rows = 7;
     const fw = spriteSheet.width / cols;
     const fh = spriteSheet.height / rows;
 
     const isMe = (p.id === myId);
+
+    // Usa posição local para o próprio jogador (movimento imediato)
+    const drawX = isMe ? localX : p.x;
+    const drawY = isMe ? localY : p.y;
+
     const moving = isMe
         ? (Math.abs(joy.vx) > 0.1 || Math.abs(joy.vy) > 0.1)
         : (Math.abs(p.vx ?? 0) > 0.1 || Math.abs(p.vy ?? 0) > 0.1);
 
-    // CORREÇÃO 1: Animação isolada por jogador
     const anim = getAnim(p.id);
     const currentRow = moving ? 1 : 0;
 
@@ -87,21 +97,17 @@ function drawPlayer(p) {
         anim.frame = 0;
     }
 
-    // CORREÇÃO 4: Direção vinda do servidor para jogadores remotos
     const dir = isMe ? lastDir : (p.dir ?? 1);
 
     ctx.save();
-    ctx.translate(p.x, p.y);
-
-    if (dir === -1) {
-        ctx.scale(-1, 1);
-    }
+    ctx.translate(drawX, drawY);
+    if (dir === -1) ctx.scale(-1, 1);
 
     ctx.drawImage(
         spriteSheet,
         anim.frame * fw, currentRow * fh,
         fw, fh,
-        -fw / 2, -fh / 2,
+        -fw/2, -fh/2,
         fw, fh
     );
 
@@ -109,7 +115,6 @@ function drawPlayer(p) {
 }
 
 function gameLoop(ts) {
-    // CORREÇÃO 2: Delta time — normalizado para 60fps como base
     const dt = lastTs === 0 ? 1 : (ts - lastTs) / 16.67;
     lastTs = ts;
 
@@ -117,34 +122,41 @@ function gameLoop(ts) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (myId && players[myId]) {
-        let me = players[myId];
+        const me = players[myId];
 
         if (joy.active) {
-            const newX = me.x + joy.vx * 5 * dt;
-            const newY = me.y + joy.vy * 5 * dt;
+            // CORREÇÃO PRINCIPAL: atualiza posição local imediatamente, sem esperar servidor
+            localX += joy.vx * 5 * dt;
+            localY += joy.vy * 5 * dt;
 
-            // CORREÇÃO 3: Emite apenas na taxa limitada (20x/s)
+            // Clamp dentro do mundo
+            const WORLD_SIZE = 10000;
+            localX = Math.max(-WORLD_SIZE/2, Math.min(WORLD_SIZE/2, localX));
+            localY = Math.max(-WORLD_SIZE/2, Math.min(WORLD_SIZE/2, localY));
+
+            // Envia ao servidor na taxa limitada
             if (ts - lastEmitTime >= EMIT_INTERVAL) {
                 socket.emit('player_movement', {
-                    x: newX,
-                    y: newY,
-                    dir: lastDir,   // CORREÇÃO 4: Envia direção ao servidor
-                    vx: joy.vx,     // CORREÇÃO 5: Envia velocidade para animação remota
+                    x: localX,
+                    y: localY,
+                    dir: lastDir,
+                    vx: joy.vx,
                     vy: joy.vy
                 });
                 lastEmitTime = ts;
             }
         }
 
+        // Câmera segue posição local (sem delay)
         ctx.save();
-        ctx.translate(canvas.width / 2 - me.x, canvas.height / 2 - me.y);
+        ctx.translate(canvas.width/2 - localX, canvas.height/2 - localY);
 
-        // CORREÇÃO 5: Interpolação de posição para jogadores remotos
         for (let id in players) {
             const p = players[id];
-            if (id !== myId && p.targetX !== undefined) {
-                p.x += (p.targetX - p.x) * 0.2;
-                p.y += (p.targetY - p.y) * 0.2;
+            // Interpolação suave para jogadores remotos
+            if (id !== myId) {
+                p.x += (( p.targetX ?? p.x) - p.x) * 0.2;
+                p.y += (( p.targetY ?? p.y) - p.y) * 0.2;
             }
             drawPlayer(p);
         }
@@ -163,11 +175,5 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
-// CORREÇÃO 6: Game loop só inicia após o sprite carregar
-spriteSheet.onload = () => {
-    requestAnimationFrame(gameLoop);
-};
-
-spriteSheet.onerror = () => {
-    console.error("Falha ao carregar spriteSheet:", spriteSheet.src);
-};
+spriteSheet.onload = () => { requestAnimationFrame(gameLoop); };
+spriteSheet.onerror = () => { console.error("Falha ao carregar spriteSheet:", spriteSheet.src); };
