@@ -22,15 +22,13 @@ resize();
 
 socket.on('connect', () => { myId = socket.id; });
 socket.on('game_over', () => { isDead = true; });
-socket.on('level_up', (data) => { console.log("Level UP!"); });
-socket.on('damage_effect', (data) => {
-    damageTexts.push({ x: data.x, y: data.y, text: data.dmg, life: 40, color: data.color || 'white' });
-});
 socket.on('update_world', (data) => {
     players = data.players; bullets = data.bullets; enemies = data.enemies; xpOrbs = data.xpOrbs || [];
 });
+socket.on('damage_effect', (data) => {
+    damageTexts.push({ x: data.x, y: data.y, text: data.dmg, life: 40, color: data.color || 'white' });
+});
 
-// EVENTOS DE TOQUE (Mesma lógica multi-touch)
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (isDead) { isDead = false; socket.emit('respawn_request'); return; }
@@ -79,13 +77,42 @@ setInterval(() => {
     }
 }, 30);
 
+function drawMinimap() {
+    const size = 150; 
+    const padding = 20;
+    const x = canvas.width - size - padding;
+    const y = padding;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.fillRect(x, y, size, size);
+    ctx.strokeRect(x, y, size, size);
+
+    const scale = size / WORLD_SIZE;
+    const centerX = x + size / 2;
+    const centerY = y + size / 2;
+
+    enemies.forEach(en => {
+        ctx.fillStyle = 'red';
+        ctx.beginPath();
+        ctx.arc(centerX + en.x * scale, centerY + en.y * scale, 2, 0, 7);
+        ctx.fill();
+    });
+
+    if (players[myId]) {
+        const me = players[myId];
+        ctx.fillStyle = Date.now() % 500 > 250 ? 'white' : 'cyan';
+        ctx.beginPath();
+        ctx.arc(centerX + me.x * scale, centerY + me.y * scale, 3, 0, 7);
+        ctx.fill();
+    }
+}
+
 function draw() {
     ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     if (!myId || !players[myId]) { requestAnimationFrame(draw); return; }
 
     const me = players[myId];
-
-    // ATUALIZA CÂMERA
     camera.x = me.x - canvas.width / 2;
     camera.y = me.y - canvas.height / 2;
 
@@ -100,45 +127,29 @@ function draw() {
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
 
-    // DESENHAR LIMITES DO MAPA
-    ctx.strokeStyle = '#ff00ff'; ctx.lineWidth = 10;
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 10;
     ctx.strokeRect(-WORLD_SIZE/2, -WORLD_SIZE/2, WORLD_SIZE, WORLD_SIZE);
-
-    // DESENHAR GRADE (GRID)
     ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2;
-    for (let i = -WORLD_SIZE/2; i <= WORLD_SIZE/2; i += 200) {
+    for (let i = -WORLD_SIZE/2; i <= WORLD_SIZE/2; i += 250) {
         ctx.beginPath(); ctx.moveTo(i, -WORLD_SIZE/2); ctx.lineTo(i, WORLD_SIZE/2); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-WORLD_SIZE/2, i); ctx.lineTo(WORLD_SIZE/2, i); ctx.stroke();
     }
 
-    // DESENHAR XP ORBS
-    xpOrbs.forEach(orb => {
-        ctx.fillStyle = '#ffff00'; ctx.beginPath(); ctx.arc(orb.x, orb.y, 6, 0, 7); ctx.fill();
-    });
-
-    // DESENHAR INIMIGOS
+    xpOrbs.forEach(orb => { ctx.fillStyle = '#ffff00'; ctx.beginPath(); ctx.arc(orb.x, orb.y, 6, 0, 7); ctx.fill(); });
     enemies.forEach(en => {
-        ctx.fillStyle = en.color; 
+        ctx.fillStyle = en.color;
         if(en.type === 'shooter') ctx.fillRect(en.x-15, en.y-15, 30, 30);
         else { ctx.beginPath(); ctx.moveTo(en.x, en.y-20); ctx.lineTo(en.x+15, en.y+10); ctx.lineTo(en.x-15, en.y+10); ctx.fill(); }
         ctx.fillStyle = '#300'; ctx.fillRect(en.x-15, en.y-30, 30, 5);
         ctx.fillStyle = 'red'; ctx.fillRect(en.x-15, en.y-30, (en.health/en.maxHealth)*30, 5);
     });
-
-    // DESENHAR BALAS
-    bullets.forEach(b => {
-        ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, 7); ctx.fill();
-    });
-
-    // DESENHAR PLAYERS
+    bullets.forEach(b => { ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, 7); ctx.fill(); });
     for (let id in players) {
         const p = players[id]; if (p.dead) continue;
         ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, 7); ctx.fill();
         ctx.fillStyle = '#030'; ctx.fillRect(p.x-20, p.y-40, 40, 6);
         ctx.fillStyle = '#0f0'; ctx.fillRect(p.x-20, p.y-40, (p.health/p.maxHealth)*40, 6);
     }
-
-    // NÚMEROS DE DANO
     damageTexts.forEach((d, i) => {
         ctx.fillStyle = d.color; ctx.font = 'bold 24px Arial'; ctx.textAlign = 'center';
         ctx.fillText("-"+Math.round(d.text), d.x, d.y - (40-d.life));
@@ -147,17 +158,14 @@ function draw() {
 
     ctx.restore();
 
-    // INTERFACE FIXA (HUD)
-    if (players[myId]) {
-        const p = players[myId];
-        const barW = canvas.width * 0.6;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; ctx.fillRect((canvas.width-barW)/2, 25, barW, 12);
-        ctx.fillStyle = '#ffff00'; ctx.fillRect((canvas.width-barW)/2, 25, (p.xp / p.nextLevelXp) * barW, 12);
-        ctx.fillStyle = 'white'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center';
-        ctx.fillText(`NÍVEL ${p.level}`, canvas.width / 2, 55);
-    }
+    const barW = canvas.width * 0.6;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; ctx.fillRect((canvas.width-barW)/2, 25, barW, 12);
+    ctx.fillStyle = '#ffff00'; ctx.fillRect((canvas.width-barW)/2, 25, (me.xp / me.nextLevelXp) * barW, 12);
+    ctx.fillStyle = 'white'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center';
+    ctx.fillText(`NÍVEL ${me.level}`, canvas.width / 2, 55);
 
-    // JOYSTICKS
+    drawMinimap();
+
     [joyL, joyR].forEach(j => {
         if(j.active) {
             ctx.beginPath(); ctx.arc(j.baseX, j.baseY, 75, 0, 7); ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.stroke();
@@ -168,4 +176,4 @@ function draw() {
     requestAnimationFrame(draw);
 }
 draw();
-                   
+    
