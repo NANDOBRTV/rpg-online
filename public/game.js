@@ -3,7 +3,7 @@ const ctx = canvas.getContext('2d');
 const socket = io();
 
 // ===============================
-// 📦 CAMINHO REAL DO PLAYER
+// 📦 CAMINHO DOS ASSETS
 // ===============================
 const PATH = "./assets/Actor/Character/Boy/SeparateAnim";
 
@@ -40,7 +40,7 @@ socket.on('connect', () => myId = socket.id);
 socket.on('update_world', data => players = data.players);
 
 // ===============================
-// 📱 CONTROLE
+// 📱 CONTROLE TOUCH
 // ===============================
 canvas.addEventListener('touchstart', (e) => {
     let t = e.touches[0];
@@ -89,25 +89,23 @@ canvas.addEventListener('touchend', () => {
 });
 
 // ===============================
-// 🧠 DETECÇÃO INTELIGENTE DE SPRITE
+// 🧠 DETECTA SPRITE AUTOMATICO
 // ===============================
 function getSpriteData(img) {
 
     let w = img.width;
     let h = img.height;
 
-    // tenta detectar tamanho base comum
-    let possibleSizes = [16, 24, 32, 48, 64, 96, 128];
+    let sizes = [16, 24, 32, 48, 64, 96, 128];
 
-    for (let size of possibleSizes) {
+    for (let s of sizes) {
+        let cols = Math.floor(w / s);
+        let rows = Math.floor(h / s);
 
-        let cols = Math.floor(w / size);
-        let rows = Math.floor(h / size);
-
-        if (cols * size === w && rows * size === h) {
+        if (cols * s === w && rows * s === h) {
             return {
-                frameW: size,
-                frameH: size,
+                frameW: s,
+                frameH: s,
                 cols: cols,
                 rows: rows,
                 total: cols * rows
@@ -115,13 +113,13 @@ function getSpriteData(img) {
         }
     }
 
-    // fallback (usa altura como base)
-    let size = h;
-    let cols = Math.floor(w / size);
+    // fallback
+    let s = h;
+    let cols = Math.floor(w / s);
 
     return {
-        frameW: size,
-        frameH: size,
+        frameW: s,
+        frameH: s,
         cols: cols,
         rows: 1,
         total: cols
@@ -129,28 +127,40 @@ function getSpriteData(img) {
 }
 
 // ===============================
-// 🎨 DESENHAR PLAYER (PERFEITO)
+// 🎨 DESENHAR PLAYER
 // ===============================
 function drawPlayer(p) {
 
-    let img = idle;
+    // 🔥 DETECTA SE ESTÁ ANDANDO DE VERDADE
+    let moving = Math.abs(joy.vx) > 0.15 || Math.abs(joy.vy) > 0.15;
 
-    if (attacking) img = attack;
-    else if (joy.vx !== 0 || joy.vy !== 0) img = walk;
+    let img;
+
+    if (attacking) {
+        img = attack;
+    } else if (moving) {
+        img = walk;
+    } else {
+        img = idle;
+    }
 
     if (!img.complete) return;
 
     const sprite = getSpriteData(img);
 
-    frameDelay++;
-    if (frameDelay > 8) {
-        frame++;
-        frameDelay = 0;
+    // anima só quando precisa
+    if (moving || attacking) {
+        frameDelay++;
+        if (frameDelay > 8) {
+            frame++;
+            frameDelay = 0;
+        }
+    } else {
+        frame = 0;
     }
 
     if (frame >= sprite.total) frame = 0;
 
-    // calcula posição na grade
     let col = frame % sprite.cols;
     let row = Math.floor(frame / sprite.cols);
 
@@ -210,7 +220,7 @@ function gameLoop() {
 }
 
 // ===============================
-// 📐 TELA
+// 📐 RESPONSIVO
 // ===============================
 function resize() {
     canvas.width = window.innerWidth;
