@@ -2,26 +2,38 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const socket = io();
 
-// SpriteSheet do Boy
+// ===============================
+// 📦 CARREGAMENTO DE IMAGENS
+// ===============================
 const spriteSheet = new Image();
 spriteSheet.src = "./assets/Actor/Character/Boy/SpriteSheet.png"; 
 
-let spriteLoaded = false;
-spriteSheet.onload = () => { spriteLoaded = true; };
+const groundImg = new Image();
+// Usando o Tileset padrão de grama do pack Ninja Adventure
+groundImg.src = "./assets/Backgrounds/Tilesets/TilesetGround.png"; 
 
+let assetsLoaded = 0;
+const onAssetLoad = () => { assetsLoaded++; };
+spriteSheet.onload = onAssetLoad;
+groundImg.onload = onAssetLoad;
+
+// ===============================
+// 🎮 VARIÁVEIS DE ESTADO
+// ===============================
 let players = {};
 let myId = null;
-
-// Controle de Animação e Joystick
-const joy = { active: false, baseX: 0, baseY: 0, vx: 0, vy: 0 };
-let moveTouchId = null;
 let frame = 0;
 let frameDelay = 0;
+
+const joy = { active: false, baseX: 0, baseY: 0, vx: 0, vy: 0 };
+let moveTouchId = null;
 
 socket.on('connect', () => { myId = socket.id; });
 socket.on('update_world', (data) => { players = data.players; });
 
-// --- CONTROLES (Toque) ---
+// ===============================
+// 📱 CONTROLES TOUCH
+// ===============================
 canvas.addEventListener('touchstart', (e) => {
     const t = e.changedTouches[0];
     if (t.clientX < canvas.width / 2) {
@@ -54,22 +66,30 @@ canvas.addEventListener('touchend', (e) => {
     }
 });
 
-// --- FUNÇÃO PARA DESENHAR O MAPA (REFERÊNCIA VISUAL) ---
-function drawMap(camX, camY) {
-    const tileSize = 64;
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.1)"; // Linhas da grama
+// ===============================
+// 🗺️ DESENHO DO MAPA (CHÃO)
+// ===============================
+function drawMap(me) {
+    if (groundImg.width === 0) return;
     
-    // Desenha um grid para você VER o movimento
-    for (let x = -1000; x < 1000; x += tileSize) {
-        for (let y = -1000; y < 1000; y += tileSize) {
-            ctx.strokeRect(x, y, tileSize, tileSize);
+    const tileSize = 64; // Tamanho que a grama aparecerá
+    // Desenha a grama em volta do jogador para parecer um mapa infinito
+    let startX = Math.floor((me.x - canvas.width) / tileSize) * tileSize;
+    let startY = Math.floor((me.y - canvas.height) / tileSize) * tileSize;
+    
+    for (let x = startX; x < me.x + canvas.width; x += tileSize) {
+        for (let y = startY; y < me.y + canvas.height; y += tileSize) {
+            // Desenha o primeiro tile (grama) do Tileset
+            ctx.drawImage(groundImg, 0, 0, 16, 16, x, y, tileSize, tileSize);
         }
     }
 }
 
-// --- DESENHO DO JOGADOR ---
+// ===============================
+// 🎨 DESENHO DO PLAYER
+// ===============================
 function drawPlayer(p) {
-    if (!spriteLoaded) return;
+    if (spriteSheet.width === 0) return;
 
     let frameW = spriteSheet.width / 4;
     let frameH = spriteSheet.height / 7;
@@ -77,7 +97,6 @@ function drawPlayer(p) {
     let isMe = (p.id === myId);
     let moving = isMe ? (Math.abs(joy.vx) > 0.1 || Math.abs(joy.vy) > 0.1) : false;
 
-    // Linha 1 do SpriteSheet é caminhada
     let row = moving ? 1 : 0; 
 
     if (moving) {
@@ -86,13 +105,10 @@ function drawPlayer(p) {
             frame = (frame + 1) % 4;
             frameDelay = 0;
         }
-    } else {
-        frame = 0;
-    }
+    } else { frame = 0; }
 
     ctx.save();
     ctx.translate(p.x, p.y);
-    // Desenha o boneco fixo (sem girar)
     ctx.drawImage(
         spriteSheet,
         frame * frameW, row * frameH,
@@ -103,9 +119,10 @@ function drawPlayer(p) {
     ctx.restore();
 }
 
-// --- LOOP PRINCIPAL ---
+// ===============================
+// 🔄 LOOP PRINCIPAL
+// ===============================
 function gameLoop() {
-    // Fundo Verde
     ctx.fillStyle = "#2d8a45"; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -121,10 +138,10 @@ function gameLoop() {
         }
 
         ctx.save();
-        // A CÂMERA É O QUE FAZ PARECER QUE ANDA
+        // CÂMERA
         ctx.translate(canvas.width/2 - me.x, canvas.height/2 - me.y);
         
-        drawMap(); // Desenha o grid de referência
+        drawMap(me); // Desenha o chão antes dos players
         
         for (let id in players) {
             drawPlayer(players[id]);
