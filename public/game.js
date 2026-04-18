@@ -3,39 +3,22 @@ const ctx = canvas.getContext('2d');
 const socket = io();
 
 // ===============================
-// 📦 CAMINHO REAL (EXATO DO PRINT)
+// 📦 CAMINHO DO SEU PERSONAGEM
 // ===============================
 
 const path = "./assets/Actor/Character/Boy/SeparateAnim";
 
 // ===============================
-// 📦 ASSETS REAIS
+// 📦 IMAGENS
 // ===============================
 
-const assets = {
-    idle: new Image(),
-    walk: new Image(),
-    attack: new Image(),
-    jump: new Image(),
-    dead: new Image()
-};
+const idle = new Image();
+const walk = new Image();
+const attack = new Image();
 
-assets.idle.src   = `${path}/Idle.png`;
-assets.walk.src   = `${path}/Walk.png`;
-assets.attack.src = `${path}/Attack.png`;
-assets.jump.src   = `${path}/Jump.png`;
-assets.dead.src   = `${path}/Dead.png`;
-
-// ===============================
-// LOAD
-// ===============================
-
-let loaded = 0;
-let total = Object.keys(assets).length;
-
-Object.values(assets).forEach(img => {
-    img.onload = () => loaded++;
-});
+idle.src = `${path}/Idle.png`;
+walk.src = `${path}/Walk.png`;
+attack.src = `${path}/Attack.png`;
 
 // ===============================
 // 🎮 DADOS
@@ -46,21 +29,13 @@ let myId = null;
 
 let frame = 0;
 let frameDelay = 0;
-
 let attacking = false;
-let jumping = false;
 
 // ===============================
 // 🕹️ JOYSTICK
 // ===============================
 
-const joy = {
-    active: false,
-    baseX: 100,
-    baseY: 0,
-    vx: 0,
-    vy: 0
-};
+const joy = { active:false, baseX:0, baseY:0, vx:0, vy:0 };
 
 // ===============================
 // 🌐 SOCKET
@@ -70,7 +45,7 @@ socket.on('connect', () => myId = socket.id);
 socket.on('update_world', data => players = data.players);
 
 // ===============================
-// 📱 TOUCH
+// 📱 CONTROLE
 // ===============================
 
 canvas.addEventListener('touchstart', (e) => {
@@ -120,34 +95,49 @@ canvas.addEventListener('touchend', () => {
 });
 
 // ===============================
-// 🎨 PLAYER
+// 🎨 DESENHAR PLAYER (SIMPLES)
 // ===============================
 
 function drawPlayer(p) {
 
-    let img = assets.idle;
+    let img = idle;
 
-    if (attacking) img = assets.attack;
-    else if (joy.vx !== 0 || joy.vy !== 0) img = assets.walk;
+    if (attacking) img = attack;
+    else if (joy.vx !== 0 || joy.vy !== 0) img = walk;
 
-    let fw = 48;
-    let fh = 48;
+    // pega tamanho correto automaticamente
+    let frameSize = img.height;
+    let totalFrames = Math.floor(img.width / frameSize);
 
+    // animação
     frameDelay++;
-    if (frameDelay > 6) {
+    if (frameDelay > 10) {
         frame++;
         frameDelay = 0;
     }
 
-    if (frame > 5) frame = 0;
+    if (frame >= totalFrames) frame = 0;
 
     ctx.save();
 
+    // virar esquerda
     if (joy.vx < 0) {
         ctx.scale(-1, 1);
-        ctx.drawImage(img, frame*fw,0,fw,fh, -(p.x+32), p.y-32, 64,64);
+        ctx.drawImage(
+            img,
+            frame * frameSize, 0,
+            frameSize, frameSize,
+            -(p.x + 32), p.y - 32,
+            64, 64
+        );
     } else {
-        ctx.drawImage(img, frame*fw,0,fw,fh, p.x-32, p.y-32, 64,64);
+        ctx.drawImage(
+            img,
+            frame * frameSize, 0,
+            frameSize, frameSize,
+            p.x - 32, p.y - 32,
+            64, 64
+        );
     }
 
     ctx.restore();
@@ -158,11 +148,6 @@ function drawPlayer(p) {
 // ===============================
 
 function gameLoop() {
-
-    if (loaded < total) {
-        requestAnimationFrame(gameLoop);
-        return;
-    }
 
     ctx.fillStyle = "#2d8a45";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -188,7 +173,7 @@ function gameLoop() {
 }
 
 // ===============================
-// 📐 RESIZE
+// 📐 TELA
 // ===============================
 
 function resize() {
