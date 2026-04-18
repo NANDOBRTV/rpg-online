@@ -2,14 +2,14 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const socket = io();
 
-// Carregando o arquivo que você mandou
+// Carregando o seu arquivo SpriteSheet
 const spriteSheet = new Image();
 spriteSheet.src = "./assets/Actor/Character/Boy/SpriteSheet.png"; 
 
 let spriteLoaded = false;
 spriteSheet.onload = () => { spriteLoaded = true; };
 
-let players = {}, myId = null, frame = 0, frameDelay = 0;
+let players = {}, myId = null;
 let lastDirection = 1; 
 const joy = { active: false, baseX: 0, baseY: 0, vx: 0, vy: 0 };
 let moveTouchId = null;
@@ -17,7 +17,7 @@ let moveTouchId = null;
 socket.on('connect', () => { myId = socket.id; });
 socket.on('update_world', (data) => { players = data.players; });
 
-// --- CONTROLES ---
+// --- CONTROLES (Mantidos para o movimento funcionar) ---
 canvas.addEventListener('touchstart', (e) => {
     let t = e.changedTouches[0];
     if (t.clientX < canvas.width / 2) {
@@ -45,41 +45,29 @@ canvas.addEventListener('touchmove', (e) => {
 
 canvas.addEventListener('touchend', () => { joy.active = false; joy.vx = 0; joy.vy = 0; moveTouchId = null; });
 
-// --- DESENHO CORRIGIDO PARA O SEU ARQUIVO ---
+// --- DESENHO SEM ANIMAÇÃO (ESTÁTICO) ---
 function drawPlayer(p) {
     if (!spriteLoaded) return;
 
     let isMe = (p.id === myId);
-    let moving = isMe ? (Math.abs(joy.vx) > 0.1 || Math.abs(joy.vy) > 0.1) : false;
-
-    // Medidas baseadas no arquivo SpriteSheet.png
-    // Ele tem 4 frames de largura e 7 linhas de animação
+    
+    // Calculamos o tamanho de um boneco apenas uma vez
     let frameW = spriteSheet.width / 4;
     let frameH = spriteSheet.height / 7;
-
-    // Linha 0: Parado | Linha 1: Andando
-    let row = moving ? 1 : 0; 
-
-    if (moving) {
-        frameDelay++;
-        if (frameDelay > 8) { frame = (frame + 1) % 4; frameDelay = 0; }
-    } else {
-        frame = 0;
-    }
 
     ctx.save();
     ctx.translate(p.x, p.y);
     
-    // Inverte o boneco para a esquerda
+    // Inverte para a esquerda se necessário
     if (isMe && lastDirection === -1) ctx.scale(-1, 1);
 
-    // O segredo está aqui: frameW e frameH recortam o boneco sozinho
+    // Desenha SEMPRE o primeiro frame (parado) da primeira linha
     ctx.drawImage(
         spriteSheet,
-        frame * frameW, row * frameH, // Local do corte
-        frameW, frameH,               // Tamanho do corte
-        -24, -24,                     // Centraliza no mapa
-        48, 48                        // Tamanho na tela
+        0, 0,           // Sempre corta a posição (0,0) da imagem
+        frameW, frameH, // Tamanho do corte de um único boneco
+        -24, -24,       // Centraliza
+        48, 48          // Tamanho na tela
     );
 
     ctx.restore();
@@ -101,4 +89,4 @@ function gameLoop() {
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 window.addEventListener("resize", resize);
 resize(); gameLoop();
-    
+        
