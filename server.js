@@ -12,29 +12,32 @@ app.use(express.static(path.join(__dirname, 'public')));
 let players = {};
 let bullets = [];
 let enemies = [];
+const MAX_ENEMIES = 20;
 
-// Função para criar uma horda de 20 inimigos
-function spawnHorde() {
-    enemies = []; // Limpa antes de criar
-    for (let i = 0; i < 20; i++) {
-        enemies.push({
-            id: 'bot_' + Math.random(),
-            x: Math.random() * 2000 - 1000, // Espalhados em um mapa maior
-            y: Math.random() * 2000 - 1000,
-            health: 50,
-            color: '#ff3333'
-        });
-    }
+// Função para criar inimigos com barra de vida
+function spawnEnemy() {
+    return {
+        id: 'bot_' + Math.random(),
+        x: Math.random() * 1600 - 800,
+        y: Math.random() * 1600 - 800,
+        health: 50,
+        maxHealth: 50,
+        color: '#ff3333'
+    };
 }
-spawnHorde();
+
+// Inicializa a horda de 20
+for (let i = 0; i < MAX_ENEMIES; i++) {
+    enemies.push(spawnEnemy());
+}
 
 io.on('connection', (socket) => {
     players[socket.id] = {
         id: socket.id,
-        x: 300,
-        y: 300,
+        x: 400, y: 400,
         color: '#' + Math.floor(Math.random()*16777215).toString(16),
-        health: 100
+        health: 100,
+        lastShot: 0
     };
 
     socket.on('player_movement', (data) => {
@@ -45,62 +48,53 @@ io.on('connection', (socket) => {
     });
 
     socket.on('shoot', (data) => {
-        bullets.push({
-            id: Math.random(),
-            owner: socket.id,
-            x: data.x, y: data.y,
-            vX: data.vX * 15, vY: data.vY * 15,
-            life: 80
-        });
+        const now = Date.now();
+        const p = players[socket.id];
+        // CADÊNCIA DE TIRO: 400ms (Mais lento e estratégico)
+        if (p && now - p.lastShot > 400) {
+            bullets.push({
+                id: Math.random(),
+                owner: socket.id,
+                x: data.x, y: data.y,
+                vX: data.vX * 18,
+                vY: data.vY * 18,
+                life: 60
+            });
+            p.lastShot = now;
+        }
     });
 
     socket.on('disconnect', () => { delete players[socket.id]; });
 });
 
-// LOOP DE LÓGICA (30 FPS)
 setInterval(() => {
+    // IA dos Inimigos (Perseguição)
     enemies.forEach(en => {
         let nearestPlayer = null;
         let minDist = 1500;
-
         for (let id in players) {
             let p = players[id];
             let d = Math.sqrt(Math.pow(en.x - p.x, 2) + Math.pow(en.y - p.y, 2));
             if (d < minDist) { minDist = d; nearestPlayer = p; }
         }
-
-        // Perseguição
-        if (nearestPlayer && minDist < 600) {
+        if (nearestPlayer && minDist < 800) {
             let dx = nearestPlayer.x - en.x;
             let dy = nearestPlayer.y - en.y;
-            en.x += (dx / minDist) * 3.5; // Inimigos levemente mais rápidos
+            en.x += (dx / minDist) * 3.5;
             en.y += (dy / minDist) * 3.5;
-
-            // Dano de contato
-            if (minDist < 25) {
-                nearestPlayer.health -= 0.8;
-                if (nearestPlayer.health <= 0) {
-                    nearestPlayer.x = 300; nearestPlayer.y = 300; nearestPlayer.health = 100;
-                }
-            }
+            if (minDist < 25) nearestPlayer.health -= 0.5;
         }
     });
 
-    // Balas e colisões
+    // Colisões e Respawn Instantâneo
     bullets.forEach((b, bIdx) => {
         b.x += b.vX; b.y += b.vY; b.life--;
-
-        enemies.forEach((en) => {
+        enemies.forEach((en, eIdx) => {
             let d = Math.sqrt(Math.pow(b.x - en.x, 2) + Math.pow(b.y - en.y, 2));
-            if (d < 25) {
-                en.health -= 25; // 2 tiros para matar
+            if (d < 30) {
+                en.health -= 10;
                 bullets.splice(bIdx, 1);
-                if (en.health <= 0) {
-                    // Respawn instantâneo em posição aleatória
-                    en.x = Math.random() * 1200 - 600;
-                    en.y = Math.random() * 1200 - 600;
-                    en.health = 50;
-                }
+                if (en.health <= 0) { enemies[eIdx] = spawnEnemy(); } // Respawn
             }
         });
         if (b.life <= 0) bullets.splice(bIdx, 1);
