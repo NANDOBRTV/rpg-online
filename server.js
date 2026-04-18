@@ -11,11 +11,24 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 let players = {};
 let bullets = [];
+let enemies = [];
+
+// Função para criar uma horda de 20 inimigos
+function spawnHorde() {
+    enemies = []; // Limpa antes de criar
+    for (let i = 0; i < 20; i++) {
+        enemies.push({
+            id: 'bot_' + Math.random(),
+            x: Math.random() * 2000 - 1000, // Espalhados em um mapa maior
+            y: Math.random() * 2000 - 1000,
+            health: 50,
+            color: '#ff3333'
+        });
+    }
+}
+spawnHorde();
 
 io.on('connection', (socket) => {
-    console.log('Player conectado:', socket.id);
-
-    // Inicializa o player com vida (health)
     players[socket.id] = {
         id: socket.id,
         x: 300,
@@ -24,10 +37,6 @@ io.on('connection', (socket) => {
         health: 100
     };
 
-    // Envia dados iniciais
-    io.emit('update_world', { players, bullets });
-
-    // Atualiza movimento enviado pelo cliente
     socket.on('player_movement', (data) => {
         if (players[socket.id]) {
             players[socket.id].x = data.x;
@@ -35,61 +44,70 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Escuta quando o jogador atira
     socket.on('shoot', (data) => {
         bullets.push({
             id: Math.random(),
             owner: socket.id,
-            x: data.x,
-            y: data.y,
-            vX: data.vX * 15, // Velocidade do projétil
-            vY: data.vY * 15,
-            life: 100 // Tempo de duração da bala antes de sumir
+            x: data.x, y: data.y,
+            vX: data.vX * 15, vY: data.vY * 15,
+            life: 80
         });
     });
 
-    socket.on('disconnect', () => {
-        delete players[socket.id];
-        io.emit('update_world', { players, bullets });
-    });
+    socket.on('disconnect', () => { delete players[socket.id]; });
 });
 
-// LOOP DO SERVIDOR (Roda a 30 FPS para processar a física das balas)
+// LOOP DE LÓGICA (30 FPS)
 setInterval(() => {
-    // Move as balas
-    bullets.forEach((b, index) => {
-        b.x += b.vX;
-        b.y += b.vY;
-        b.life--;
+    enemies.forEach(en => {
+        let nearestPlayer = null;
+        let minDist = 1500;
 
-        // Remove balas que "morreram" por tempo
-        if (b.life <= 0) {
-            bullets.splice(index, 1);
-            return;
+        for (let id in players) {
+            let p = players[id];
+            let d = Math.sqrt(Math.pow(en.x - p.x, 2) + Math.pow(en.y - p.y, 2));
+            if (d < minDist) { minDist = d; nearestPlayer = p; }
         }
 
-        // Colisão simples: Verifica se a bala atingiu algum jogador
-        for (let id in players) {
-            if (id !== b.owner) { // Não acertar a si mesmo
-                const p = players[id];
-                const dist = Math.sqrt(Math.pow(b.x - p.x, 2) + Math.pow(b.y - p.y, 2));
-                
-                if (dist < 20) { // Se a bala encostar no raio do player
-                    p.health -= 10; // Tira vida
-                    bullets.splice(index, 1); // Remove a bala
-                    if (p.health <= 0) {
-                        p.x = 300; p.y = 300; p.health = 100; // Respawna
-                    }
+        // Perseguição
+        if (nearestPlayer && minDist < 600) {
+            let dx = nearestPlayer.x - en.x;
+            let dy = nearestPlayer.y - en.y;
+            en.x += (dx / minDist) * 3.5; // Inimigos levemente mais rápidos
+            en.y += (dy / minDist) * 3.5;
+
+            // Dano de contato
+            if (minDist < 25) {
+                nearestPlayer.health -= 0.8;
+                if (nearestPlayer.health <= 0) {
+                    nearestPlayer.x = 300; nearestPlayer.y = 300; nearestPlayer.health = 100;
                 }
             }
         }
     });
-    
-    // Envia o estado de todo o mundo para todos os jogadores
-    io.emit('update_world', { players, bullets });
+
+    // Balas e colisões
+    bullets.forEach((b, bIdx) => {
+        b.x += b.vX; b.y += b.vY; b.life--;
+
+        enemies.forEach((en) => {
+            let d = Math.sqrt(Math.pow(b.x - en.x, 2) + Math.pow(b.y - en.y, 2));
+            if (d < 25) {
+                en.health -= 25; // 2 tiros para matar
+                bullets.splice(bIdx, 1);
+                if (en.health <= 0) {
+                    // Respawn instantâneo em posição aleatória
+                    en.x = Math.random() * 1200 - 600;
+                    en.y = Math.random() * 1200 - 600;
+                    en.health = 50;
+                }
+            }
+        });
+        if (b.life <= 0) bullets.splice(bIdx, 1);
+    });
+
+    io.emit('update_world', { players, bullets, enemies });
 }, 30);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor de Combate Online na porta ${PORT}`);
-});
+server.listen(PORT, '0.0.0.0');
