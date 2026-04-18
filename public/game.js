@@ -2,32 +2,31 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const socket = io();
 
-// Configuração do caminho das pastas conforme seu GitHub
-const PATH = "./assets/Actor/Character/Boy/SeparateAnim";
+// Carregando o arquivo que você mandou
+const spriteSheet = new Image();
+spriteSheet.src = "./assets/Actor/Character/Boy/SpriteSheet.png"; 
 
-const idle = new Image(); idle.src = `${PATH}/Idle.png`;
-const walk = new Image(); walk.src = `${PATH}/Walk.png`;
-const attack = new Image(); attack.src = `${PATH}/Attack.png`;
+let spriteLoaded = false;
+spriteSheet.onload = () => { spriteLoaded = true; };
 
 let players = {}, myId = null, frame = 0, frameDelay = 0;
-let attacking = false, lastDirection = 1;
+let lastDirection = 1; 
 const joy = { active: false, baseX: 0, baseY: 0, vx: 0, vy: 0 };
 let moveTouchId = null;
 
 socket.on('connect', () => { myId = socket.id; });
-socket.on('update_world', data => { players = data.players; });
+socket.on('update_world', (data) => { players = data.players; });
 
-// Controles corrigidos para celular
-canvas.addEventListener('touchstart', e => {
-    for (let t of e.changedTouches) {
-        if (t.clientX < canvas.width / 2) {
-            moveTouchId = t.identifier; joy.active = true;
-            joy.baseX = t.clientX; joy.baseY = t.clientY;
-        } else { attacking = true; }
+// --- CONTROLES ---
+canvas.addEventListener('touchstart', (e) => {
+    let t = e.changedTouches[0];
+    if (t.clientX < canvas.width / 2) {
+        moveTouchId = t.identifier;
+        joy.active = true; joy.baseX = t.clientX; joy.baseY = t.clientY;
     }
 });
 
-canvas.addEventListener('touchmove', e => {
+canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
     for (let t of e.changedTouches) {
         if (t.identifier === moveTouchId) {
@@ -35,48 +34,59 @@ canvas.addEventListener('touchmove', e => {
             let dist = Math.sqrt(dx*dx + dy*dy);
             if (dist > 50) { dx *= 50/dist; dy *= 50/dist; }
             joy.vx = dx/50; joy.vy = dy/50;
-            lastDirection = joy.vx > 0.1 ? 1 : (joy.vx < -0.1 ? -1 : lastDirection);
+            if (joy.vx > 0.1) lastDirection = 1;
+            if (joy.vx < -0.1) lastDirection = -1;
             if (myId && players[myId]) {
-                socket.emit('player_movement', { x: players[myId].x + joy.vx*6, y: players[myId].y + joy.vy*6 });
+                socket.emit('player_movement', { x: players[myId].x + joy.vx * 6, y: players[myId].y + joy.vy * 6 });
             }
         }
     }
 }, { passive: false });
 
-canvas.addEventListener('touchend', e => {
-    for (let t of e.changedTouches) {
-        if (t.identifier === moveTouchId) { moveTouchId = null; joy.active = false; joy.vx = 0; joy.vy = 0; }
-        else { attacking = false; }
-    }
-});
+canvas.addEventListener('touchend', () => { joy.active = false; joy.vx = 0; joy.vy = 0; moveTouchId = null; });
 
+// --- DESENHO CORRIGIDO PARA O SEU ARQUIVO ---
 function drawPlayer(p) {
+    if (!spriteLoaded) return;
+
     let isMe = (p.id === myId);
     let moving = isMe ? (Math.abs(joy.vx) > 0.1 || Math.abs(joy.vy) > 0.1) : false;
-    let img = (attacking && isMe) ? attack : (moving ? walk : idle);
 
-    if (!img.complete || img.width === 0) return;
+    // Medidas baseadas no arquivo SpriteSheet.png
+    // Ele tem 4 frames de largura e 7 linhas de animação
+    let frameW = spriteSheet.width / 4;
+    let frameH = spriteSheet.height / 7;
 
-    // CORREÇÃO CRÍTICA: Divide a imagem em 4 frames
-    let frameW = img.width / 4;
-    let frameH = img.height;
+    // Linha 0: Parado | Linha 1: Andando
+    let row = moving ? 1 : 0; 
 
-    if (moving || (attacking && isMe)) {
+    if (moving) {
         frameDelay++;
-        if (frameDelay > 7) { frame = (frame + 1) % 4; frameDelay = 0; }
-    } else { frame = 0; }
+        if (frameDelay > 8) { frame = (frame + 1) % 4; frameDelay = 0; }
+    } else {
+        frame = 0;
+    }
 
     ctx.save();
     ctx.translate(p.x, p.y);
+    
+    // Inverte o boneco para a esquerda
     if (isMe && lastDirection === -1) ctx.scale(-1, 1);
 
-    // Desenha apenas 1/4 da imagem (um único boneco)
-    ctx.drawImage(img, frame * frameW, 0, frameW, frameH, -24, -32, 48, 48);
+    // O segredo está aqui: frameW e frameH recortam o boneco sozinho
+    ctx.drawImage(
+        spriteSheet,
+        frame * frameW, row * frameH, // Local do corte
+        frameW, frameH,               // Tamanho do corte
+        -24, -24,                     // Centraliza no mapa
+        48, 48                        // Tamanho na tela
+    );
+
     ctx.restore();
 }
 
 function gameLoop() {
-    ctx.fillStyle = "#2d8a45"; // Cor da grama
+    ctx.fillStyle = "#2d8a45"; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     if (myId && players[myId]) {
         let me = players[myId];
@@ -91,3 +101,4 @@ function gameLoop() {
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 window.addEventListener("resize", resize);
 resize(); gameLoop();
+    
