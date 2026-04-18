@@ -12,12 +12,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 let players = {};
 let bullets = [];
 let enemies = [];
-let xpOrbs = []; // Lista de XP no chão
-const MAX_ENEMIES = 15;
+let xpOrbs = [];
+const MAX_ENEMIES = 40; // Aumentei a quantidade para o mapa não parecer vazio
+const WORLD_SIZE = 10000;
 
 const ENEMY_TYPES = {
-    SHOOTER: { health: 40, maxHealth: 40, color: '#00f2ff', speed: 2, range: 450, fireRate: 1500, type: 'shooter', xp: 25 },
-    MELEE: { health: 70, maxHealth: 70, color: '#ff3333', speed: 3.5, range: 40, attackDamage: 12, type: 'melee', xp: 40 }
+    SHOOTER: { health: 40, maxHealth: 40, color: '#00f2ff', speed: 2.5, range: 450, fireRate: 1500, type: 'shooter', xp: 25 },
+    MELEE: { health: 70, maxHealth: 70, color: '#ff3333', speed: 4, range: 40, attackDamage: 12, type: 'melee', xp: 40 }
 };
 
 function spawnEnemy() {
@@ -25,8 +26,9 @@ function spawnEnemy() {
     const config = isMelee ? ENEMY_TYPES.MELEE : ENEMY_TYPES.SHOOTER;
     return {
         id: 'bot_' + Math.random(),
-        x: Math.random() * 2000 - 1000,
-        y: Math.random() * 2000 - 1000,
+        // Spawn em qualquer lugar do mapa 10kx10k (de -5000 a 5000)
+        x: Math.random() * WORLD_SIZE - WORLD_SIZE / 2,
+        y: Math.random() * WORLD_SIZE - WORLD_SIZE / 2,
         health: config.health,
         maxHealth: config.maxHealth,
         color: config.color,
@@ -40,34 +42,31 @@ function spawnEnemy() {
     };
 }
 
+// Inicializa horda maior
 for (let i = 0; i < MAX_ENEMIES; i++) { enemies.push(spawnEnemy()); }
 
 io.on('connection', (socket) => {
     players[socket.id] = {
         id: socket.id,
-        x: 300, y: 300,
+        x: 0, y: 0, // Começa no centro do mapa
         color: '#' + Math.floor(Math.random()*16777215).toString(16),
-        health: 100,
-        maxHealth: 100,
-        level: 1,
-        xp: 0,
-        nextLevelXp: 100,
-        damage: 15, // Dano inicial
-        lastShot: 0,
-        dead: false
+        health: 100, maxHealth: 100,
+        level: 1, xp: 0, nextLevelXp: 100,
+        damage: 15, lastShot: 0, dead: false
     };
 
     socket.on('player_movement', (data) => {
         if (players[socket.id] && !players[socket.id].dead) {
-            players[socket.id].x = data.x;
-            players[socket.id].y = data.y;
+            // Limita o movimento dentro das bordas do mapa
+            players[socket.id].x = Math.max(-WORLD_SIZE/2, Math.min(WORLD_SIZE/2, data.x));
+            players[socket.id].y = Math.max(-WORLD_SIZE/2, Math.min(WORLD_SIZE/2, data.y));
         }
     });
 
     socket.on('respawn_request', () => {
         if (players[socket.id]) {
             players[socket.id].health = players[socket.id].maxHealth;
-            players[socket.id].x = 300; players[socket.id].y = 300;
+            players[socket.id].x = 0; players[socket.id].y = 0;
             players[socket.id].dead = false;
         }
     });
@@ -79,7 +78,7 @@ io.on('connection', (socket) => {
                 id: Math.random(), owner: socket.id,
                 x: data.x, y: data.y,
                 vX: data.vX * 18, vY: data.vY * 18,
-                life: 60, damage: p.damage // Dano escala com o nível
+                life: 80, damage: p.damage 
             });
             p.lastShot = Date.now();
         }
@@ -91,9 +90,9 @@ io.on('connection', (socket) => {
 setInterval(() => {
     const now = Date.now();
 
-    // Lógica dos Inimigos
+    // IA e Movimentação
     enemies.forEach(en => {
-        let nearestP = null; let minDist = 1500;
+        let nearestP = null; let minDist = 2000; // Só persegue se estiver perto
         for (let id in players) {
             let p = players[id]; if (p.dead) continue;
             let d = Math.sqrt(Math.pow(en.x - p.x, 2) + Math.pow(en.y - p.y, 2));
@@ -102,37 +101,37 @@ setInterval(() => {
         if (nearestP) {
             let dx = nearestP.x - en.x, dy = nearestP.y - en.y;
             if (en.type === 'shooter') {
-                if (minDist > 300) { en.x += (dx/minDist)*en.speed; en.y += (dy/minDist)*en.speed; }
+                if (minDist > 350) { en.x += (dx/minDist)*en.speed; en.y += (dy/minDist)*en.speed; }
                 if (minDist < 500 && now - en.lastShot > en.fireRate) {
-                    bullets.push({ id: Math.random(), owner: en.id, x: en.x, y: en.y, vX: (dx/minDist)*10, vY: (dy/minDist)*10, life: 80, damage: 10 });
+                    bullets.push({ id: Math.random(), owner: en.id, x: en.x, y: en.y, vX: (dx/minDist)*12, vY: (dy/minDist)*12, life: 90, damage: 10 });
                     en.lastShot = now;
                 }
             } else {
                 en.x += (dx/minDist)*en.speed; en.y += (dy/minDist)*en.speed;
                 if (minDist < 30) { 
-                    nearestP.health -= 0.5; 
+                    nearestP.health -= 0.6; 
                     if(nearestP.health <= 0) { nearestP.dead = true; io.to(nearestP.id).emit('game_over'); } 
                 }
             }
         }
     });
 
-    // Balas e XP
+    // Balas, Colisões e Drop de XP
     bullets.forEach((b, bIdx) => {
         b.x += b.vX; b.y += b.vY; b.life--;
         enemies.forEach((en, eIdx) => {
             let d = Math.sqrt(Math.pow(b.x - en.x, 2) + Math.pow(b.y - en.y, 2));
-            if (b.owner !== en.id && d < 30) {
+            if (b.owner !== en.id && d < 35) {
                 en.health -= b.damage;
                 io.emit('damage_effect', { x: en.x, y: en.y, dmg: b.damage });
                 bullets.splice(bIdx, 1);
                 if (en.health <= 0) {
-                    xpOrbs.push({ x: en.x, y: en.y, value: en.xpValue }); // Inimigo dropa XP
+                    xpOrbs.push({ x: en.x, y: en.y, value: en.xpValue });
                     enemies[eIdx] = spawnEnemy();
                 }
             }
         });
-        // Colisão com Player
+        // Dano no Player
         for (let id in players) {
             let p = players[id];
             if (!p.dead && b.owner !== id) {
@@ -148,22 +147,18 @@ setInterval(() => {
         if (b.life <= 0) bullets.splice(bIdx, 1);
     });
 
-    // Coleta de XP
+    // Coleta de XP e Level Up
     xpOrbs.forEach((orb, oIdx) => {
         for (let id in players) {
             let p = players[id];
             if (p.dead) continue;
             let d = Math.sqrt(Math.pow(orb.x - p.x, 2) + Math.pow(orb.y - p.y, 2));
-            if (d < 40) {
+            if (d < 50) {
                 p.xp += orb.value;
                 xpOrbs.splice(oIdx, 1);
-                if (p.xp >= p.nextLevelXp) { // LEVEL UP
-                    p.level++;
-                    p.xp = 0;
-                    p.nextLevelXp = Math.floor(p.nextLevelXp * 1.5);
-                    p.maxHealth += 20;
-                    p.health = p.maxHealth;
-                    p.damage += 5;
+                if (p.xp >= p.nextLevelXp) {
+                    p.level++; p.xp = 0; p.nextLevelXp = Math.floor(p.nextLevelXp * 1.6);
+                    p.maxHealth += 25; p.health = p.maxHealth; p.damage += 7;
                     io.to(id).emit('level_up', { level: p.level });
                 }
             }
@@ -174,4 +169,4 @@ setInterval(() => {
 }, 30);
 
 server.listen(process.env.PORT || 3000, '0.0.0.0');
-                
+    
