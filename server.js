@@ -13,7 +13,7 @@ let players = {};
 let bullets = [];
 let enemies = [];
 let xpOrbs = [];
-const MAX_ENEMIES = 40; // Aumentei a quantidade para o mapa não parecer vazio
+const MAX_ENEMIES = 45; // Mais inimigos para o mapa de 10k
 const WORLD_SIZE = 10000;
 
 const ENEMY_TYPES = {
@@ -26,7 +26,6 @@ function spawnEnemy() {
     const config = isMelee ? ENEMY_TYPES.MELEE : ENEMY_TYPES.SHOOTER;
     return {
         id: 'bot_' + Math.random(),
-        // Spawn em qualquer lugar do mapa 10kx10k (de -5000 a 5000)
         x: Math.random() * WORLD_SIZE - WORLD_SIZE / 2,
         y: Math.random() * WORLD_SIZE - WORLD_SIZE / 2,
         health: config.health,
@@ -42,13 +41,12 @@ function spawnEnemy() {
     };
 }
 
-// Inicializa horda maior
 for (let i = 0; i < MAX_ENEMIES; i++) { enemies.push(spawnEnemy()); }
 
 io.on('connection', (socket) => {
     players[socket.id] = {
         id: socket.id,
-        x: 0, y: 0, // Começa no centro do mapa
+        x: 0, y: 0,
         color: '#' + Math.floor(Math.random()*16777215).toString(16),
         health: 100, maxHealth: 100,
         level: 1, xp: 0, nextLevelXp: 100,
@@ -57,7 +55,6 @@ io.on('connection', (socket) => {
 
     socket.on('player_movement', (data) => {
         if (players[socket.id] && !players[socket.id].dead) {
-            // Limita o movimento dentro das bordas do mapa
             players[socket.id].x = Math.max(-WORLD_SIZE/2, Math.min(WORLD_SIZE/2, data.x));
             players[socket.id].y = Math.max(-WORLD_SIZE/2, Math.min(WORLD_SIZE/2, data.y));
         }
@@ -90,9 +87,8 @@ io.on('connection', (socket) => {
 setInterval(() => {
     const now = Date.now();
 
-    // IA e Movimentação
     enemies.forEach(en => {
-        let nearestP = null; let minDist = 2000; // Só persegue se estiver perto
+        let nearestP = null; let minDist = 2000;
         for (let id in players) {
             let p = players[id]; if (p.dead) continue;
             let d = Math.sqrt(Math.pow(en.x - p.x, 2) + Math.pow(en.y - p.y, 2));
@@ -116,7 +112,6 @@ setInterval(() => {
         }
     });
 
-    // Balas, Colisões e Drop de XP
     bullets.forEach((b, bIdx) => {
         b.x += b.vX; b.y += b.vY; b.life--;
         enemies.forEach((en, eIdx) => {
@@ -131,7 +126,6 @@ setInterval(() => {
                 }
             }
         });
-        // Dano no Player
         for (let id in players) {
             let p = players[id];
             if (!p.dead && b.owner !== id) {
@@ -147,7 +141,6 @@ setInterval(() => {
         if (b.life <= 0) bullets.splice(bIdx, 1);
     });
 
-    // Coleta de XP e Level Up
     xpOrbs.forEach((orb, oIdx) => {
         for (let id in players) {
             let p = players[id];
@@ -169,4 +162,3 @@ setInterval(() => {
 }, 30);
 
 server.listen(process.env.PORT || 3000, '0.0.0.0');
-    
