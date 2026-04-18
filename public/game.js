@@ -3,7 +3,7 @@ const ctx = canvas.getContext('2d');
 const socket = io();
 
 // ===============================
-// 📦 CAMINHO DOS ASSETS
+// 📦 CAMINHO
 // ===============================
 const PATH = "./assets/Actor/Character/Boy/SeparateAnim";
 
@@ -28,10 +28,16 @@ let frame = 0;
 let frameDelay = 0;
 let attacking = false;
 
+let lastDirection = 1; // 1 direita, -1 esquerda
+
 // ===============================
 // 🕹️ JOYSTICK
 // ===============================
 const joy = { active:false, baseX:0, baseY:0, vx:0, vy:0 };
+
+// multitouch IDs
+let moveTouchId = null;
+let attackTouchId = null;
 
 // ===============================
 // 🌐 SOCKET
@@ -40,118 +46,113 @@ socket.on('connect', () => myId = socket.id);
 socket.on('update_world', data => players = data.players);
 
 // ===============================
-// 📱 CONTROLE TOUCH
+// 📱 TOUCH (SEM BUG)
 // ===============================
 canvas.addEventListener('touchstart', (e) => {
-    let t = e.touches[0];
 
-    if (t.clientX < canvas.width / 2) {
-        joy.active = true;
-        joy.baseX = t.clientX;
-        joy.baseY = t.clientY;
-    } else {
-        attacking = true;
+    for (let t of e.changedTouches) {
+
+        if (t.clientX < canvas.width / 2 && moveTouchId === null) {
+            moveTouchId = t.identifier;
+            joy.active = true;
+            joy.baseX = t.clientX;
+            joy.baseY = t.clientY;
+        }
+
+        else if (t.clientX >= canvas.width / 2 && attackTouchId === null) {
+            attackTouchId = t.identifier;
+            attacking = true;
+        }
     }
 });
 
 canvas.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    if (!joy.active) return;
 
-    let t = e.touches[0];
-    let dx = t.clientX - joy.baseX;
-    let dy = t.clientY - joy.baseY;
+    for (let t of e.changedTouches) {
 
-    let dist = Math.sqrt(dx*dx + dy*dy);
+        if (t.identifier === moveTouchId) {
 
-    if (dist > 50) {
-        dx = (dx/dist)*50;
-        dy = (dy/dist)*50;
-    }
+            let dx = t.clientX - joy.baseX;
+            let dy = t.clientY - joy.baseY;
 
-    joy.vx = dx / 50;
-    joy.vy = dy / 50;
+            let dist = Math.sqrt(dx*dx + dy*dy);
 
-    if (myId && players[myId]) {
-        socket.emit('player_movement', {
-            x: players[myId].x + joy.vx * 8,
-            y: players[myId].y + joy.vy * 8
-        });
+            if (dist > 50) {
+                dx = (dx/dist)*50;
+                dy = (dy/dist)*50;
+            }
+
+            joy.vx = dx / 50;
+            joy.vy = dy / 50;
+
+            // salva direção
+            if (joy.vx > 0.1) lastDirection = 1;
+            if (joy.vx < -0.1) lastDirection = -1;
+
+            if (myId && players[myId]) {
+                socket.emit('player_movement', {
+                    x: players[myId].x + joy.vx * 6,
+                    y: players[myId].y + joy.vy * 6
+                });
+            }
+        }
     }
 
 }, { passive:false });
 
-canvas.addEventListener('touchend', () => {
-    joy.active = false;
-    joy.vx = 0;
-    joy.vy = 0;
-    attacking = false;
+canvas.addEventListener('touchend', (e) => {
+
+    for (let t of e.changedTouches) {
+
+        if (t.identifier === moveTouchId) {
+            moveTouchId = null;
+            joy.active = false;
+            joy.vx = 0;
+            joy.vy = 0;
+        }
+
+        if (t.identifier === attackTouchId) {
+            attackTouchId = null;
+            attacking = false;
+        }
+    }
 });
 
 // ===============================
-// 🧠 DETECTA SPRITE AUTOMATICO
+// 🧠 SPRITE SIMPLES (FUNCIONA)
 // ===============================
-function getSpriteData(img) {
-
-    let w = img.width;
-    let h = img.height;
-
-    let sizes = [16, 24, 32, 48, 64, 96, 128];
-
-    for (let s of sizes) {
-        let cols = Math.floor(w / s);
-        let rows = Math.floor(h / s);
-
-        if (cols * s === w && rows * s === h) {
-            return {
-                frameW: s,
-                frameH: s,
-                cols: cols,
-                rows: rows,
-                total: cols * rows
-            };
-        }
-    }
-
-    // fallback
-    let s = h;
-    let cols = Math.floor(w / s);
+function getFrameData(img) {
+    let frameSize = img.height; // padrão desse pack
+    let total = Math.floor(img.width / frameSize);
 
     return {
-        frameW: s,
-        frameH: s,
-        cols: cols,
-        rows: 1,
-        total: cols
+        frameW: frameSize,
+        frameH: frameSize,
+        total: total
     };
 }
 
 // ===============================
-// 🎨 DESENHAR PLAYER
+// 🎨 PLAYER
 // ===============================
 function drawPlayer(p) {
 
-    // 🔥 DETECTA SE ESTÁ ANDANDO DE VERDADE
     let moving = Math.abs(joy.vx) > 0.15 || Math.abs(joy.vy) > 0.15;
 
     let img;
 
-    if (attacking) {
-        img = attack;
-    } else if (moving) {
-        img = walk;
-    } else {
-        img = idle;
-    }
+    if (attacking) img = attack;
+    else if (moving) img = walk;
+    else img = idle;
 
     if (!img.complete) return;
 
-    const sprite = getSpriteData(img);
+    let sprite = getFrameData(img);
 
-    // anima só quando precisa
+    // animação só quando precisa
     if (moving || attacking) {
         frameDelay++;
-        if (frameDelay > 8) {
+        if (frameDelay > 10) {
             frame++;
             frameDelay = 0;
         }
@@ -161,19 +162,15 @@ function drawPlayer(p) {
 
     if (frame >= sprite.total) frame = 0;
 
-    let col = frame % sprite.cols;
-    let row = Math.floor(frame / sprite.cols);
-
-    let sx = col * sprite.frameW;
-    let sy = row * sprite.frameH;
+    let sx = frame * sprite.frameW;
 
     ctx.save();
 
-    if (joy.vx < 0) {
+    if (lastDirection === -1) {
         ctx.scale(-1, 1);
         ctx.drawImage(
             img,
-            sx, sy,
+            sx, 0,
             sprite.frameW, sprite.frameH,
             -(p.x + 32), p.y - 32,
             64, 64
@@ -181,7 +178,7 @@ function drawPlayer(p) {
     } else {
         ctx.drawImage(
             img,
-            sx, sy,
+            sx, 0,
             sprite.frameW, sprite.frameH,
             p.x - 32, p.y - 32,
             64, 64
@@ -220,7 +217,7 @@ function gameLoop() {
 }
 
 // ===============================
-// 📐 RESPONSIVO
+// 📐 TELA
 // ===============================
 function resize() {
     canvas.width = window.innerWidth;
