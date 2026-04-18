@@ -3,27 +3,24 @@ const ctx = canvas.getContext('2d');
 const socket = io();
 
 // ===============================
-// 📦 CAMINHO DO SEU PERSONAGEM
+// 📦 CAMINHO REAL DO PLAYER
 // ===============================
-
-const path = "./assets/Actor/Character/Boy/SeparateAnim";
+const PATH = "./assets/Actor/Character/Boy/SeparateAnim";
 
 // ===============================
 // 📦 IMAGENS
 // ===============================
-
 const idle = new Image();
 const walk = new Image();
 const attack = new Image();
 
-idle.src = `${path}/Idle.png`;
-walk.src = `${path}/Walk.png`;
-attack.src = `${path}/Attack.png`;
+idle.src = `${PATH}/Idle.png`;
+walk.src = `${PATH}/Walk.png`;
+attack.src = `${PATH}/Attack.png`;
 
 // ===============================
 // 🎮 DADOS
 // ===============================
-
 let players = {};
 let myId = null;
 
@@ -34,20 +31,17 @@ let attacking = false;
 // ===============================
 // 🕹️ JOYSTICK
 // ===============================
-
 const joy = { active:false, baseX:0, baseY:0, vx:0, vy:0 };
 
 // ===============================
 // 🌐 SOCKET
 // ===============================
-
 socket.on('connect', () => myId = socket.id);
 socket.on('update_world', data => players = data.players);
 
 // ===============================
 // 📱 CONTROLE
 // ===============================
-
 canvas.addEventListener('touchstart', (e) => {
     let t = e.touches[0];
 
@@ -95,9 +89,48 @@ canvas.addEventListener('touchend', () => {
 });
 
 // ===============================
-// 🎨 DESENHAR PLAYER (SIMPLES)
+// 🧠 DETECÇÃO INTELIGENTE DE SPRITE
 // ===============================
+function getSpriteData(img) {
 
+    let w = img.width;
+    let h = img.height;
+
+    // tenta detectar tamanho base comum
+    let possibleSizes = [16, 24, 32, 48, 64, 96, 128];
+
+    for (let size of possibleSizes) {
+
+        let cols = Math.floor(w / size);
+        let rows = Math.floor(h / size);
+
+        if (cols * size === w && rows * size === h) {
+            return {
+                frameW: size,
+                frameH: size,
+                cols: cols,
+                rows: rows,
+                total: cols * rows
+            };
+        }
+    }
+
+    // fallback (usa altura como base)
+    let size = h;
+    let cols = Math.floor(w / size);
+
+    return {
+        frameW: size,
+        frameH: size,
+        cols: cols,
+        rows: 1,
+        total: cols
+    };
+}
+
+// ===============================
+// 🎨 DESENHAR PLAYER (PERFEITO)
+// ===============================
 function drawPlayer(p) {
 
     let img = idle;
@@ -105,36 +138,41 @@ function drawPlayer(p) {
     if (attacking) img = attack;
     else if (joy.vx !== 0 || joy.vy !== 0) img = walk;
 
-    // pega tamanho correto automaticamente
-    let frameSize = img.height;
-    let totalFrames = Math.floor(img.width / frameSize);
+    if (!img.complete) return;
 
-    // animação
+    const sprite = getSpriteData(img);
+
     frameDelay++;
-    if (frameDelay > 10) {
+    if (frameDelay > 8) {
         frame++;
         frameDelay = 0;
     }
 
-    if (frame >= totalFrames) frame = 0;
+    if (frame >= sprite.total) frame = 0;
+
+    // calcula posição na grade
+    let col = frame % sprite.cols;
+    let row = Math.floor(frame / sprite.cols);
+
+    let sx = col * sprite.frameW;
+    let sy = row * sprite.frameH;
 
     ctx.save();
 
-    // virar esquerda
     if (joy.vx < 0) {
         ctx.scale(-1, 1);
         ctx.drawImage(
             img,
-            frame * frameSize, 0,
-            frameSize, frameSize,
+            sx, sy,
+            sprite.frameW, sprite.frameH,
             -(p.x + 32), p.y - 32,
             64, 64
         );
     } else {
         ctx.drawImage(
             img,
-            frame * frameSize, 0,
-            frameSize, frameSize,
+            sx, sy,
+            sprite.frameW, sprite.frameH,
             p.x - 32, p.y - 32,
             64, 64
         );
@@ -146,7 +184,6 @@ function drawPlayer(p) {
 // ===============================
 // 🎮 LOOP
 // ===============================
-
 function gameLoop() {
 
     ctx.fillStyle = "#2d8a45";
@@ -175,7 +212,6 @@ function gameLoop() {
 // ===============================
 // 📐 TELA
 // ===============================
-
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -186,6 +222,5 @@ window.addEventListener("resize", resize);
 // ===============================
 // 🚀 START
 // ===============================
-
 resize();
 gameLoop();
