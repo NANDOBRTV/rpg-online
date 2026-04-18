@@ -12,7 +12,7 @@ spriteSheet.onload = () => { spriteLoaded = true; };
 let players = {};
 let myId = null;
 
-// Controle de Animação
+// Animação
 let frame = 0;
 let frameDelay = 0;
 
@@ -44,15 +44,9 @@ canvas.addEventListener('touchmove', (e) => {
 
             if (dist > 50) { dx *= 50/dist; dy *= 50/dist; }
             
+            // vx e vy controlam a direção (entre -1 e 1)
             joy.vx = dx/50;
             joy.vy = dy/50;
-
-            if (myId && players[myId]) {
-                socket.emit('player_movement', {
-                    x: players[myId].x + joy.vx * 6,
-                    y: players[myId].y + joy.vy * 6
-                });
-            }
         }
     }
 }, { passive: false });
@@ -61,52 +55,60 @@ canvas.addEventListener('touchend', () => {
     joy.active = false; joy.vx = 0; joy.vy = 0; moveTouchId = null;
 });
 
-// --- DESENHO COM ANIMAÇÃO DE CAMINHADA ---
+// --- DESENHO DO PERSONAGEM ---
 function drawPlayer(p) {
     if (!spriteLoaded) return;
 
+    // Detecta se ESSE jogador específico está se movendo
+    // Se for o meu jogador, uso o joystick. Se for outro, comparo a posição anterior (lógica simples)
     let isMe = (p.id === myId);
-    
-    // Verifica se o personagem está se movendo (velocidade maior que 0.1)
-    let isMoving = isMe ? (Math.abs(joy.vx) > 0.1 || Math.abs(joy.vy) > 0.1) : false;
+    let moving = isMe ? (Math.abs(joy.vx) > 0.1 || Math.abs(joy.vy) > 0.1) : false;
 
     let frameW = spriteSheet.width / 4;
     let frameH = spriteSheet.height / 7;
 
-    // LÓGICA DE ANIMAÇÃO:
-    // Se estiver movendo, usamos a LINHA 1 (Walk). Se parado, LINHA 0 (Idle).
-    let row = isMoving ? 1 : 0; 
+    let row = moving ? 1 : 0; 
 
-    if (isMoving) {
+    if (moving) {
         frameDelay++;
-        if (frameDelay > 8) { // Velocidade da troca de passos
-            frame = (frame + 1) % 4; // Alterna entre os 4 bonecos da linha
+        if (frameDelay > 8) {
+            frame = (frame + 1) % 4;
             frameDelay = 0;
         }
     } else {
-        frame = 0; // Volta para o frame inicial quando para
+        frame = 0;
     }
 
     ctx.save();
     ctx.translate(p.x, p.y);
-
     ctx.drawImage(
         spriteSheet,
-        frame * frameW, row * frameH, // Recorta o frame e a linha certos
+        frame * frameW, row * frameH,
         frameW, frameH,
         -24, -24,
         48, 48
     );
-
     ctx.restore();
 }
 
+// --- LOOP PRINCIPAL (ONDE O MOVIMENTO ACONTECE) ---
 function gameLoop() {
+    // 1. Limpa a tela
     ctx.fillStyle = "#2d8a45"; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (myId && players[myId]) {
         let me = players[myId];
+
+        // 2. ENVIAR MOVIMENTO PARA O SERVIDOR CONSTANTEMENTE
+        if (joy.active) {
+            socket.emit('player_movement', {
+                x: me.x + joy.vx * 5, // 5 é a velocidade de caminhada
+                y: me.y + joy.vy * 5
+            });
+        }
+
+        // 3. A CÂMERA SEGUE O JOGADOR
         ctx.save();
         ctx.translate(canvas.width/2 - me.x, canvas.height/2 - me.y);
 
