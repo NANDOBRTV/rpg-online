@@ -1,74 +1,588 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon-Grid Strider</title>
-    <style>
-        /* Estilização Base */
-        * { box-sizing: border-box; outline: none; }
-        
-        body, html { 
-            margin: 0; 
-            padding: 0; 
-            width: 100%; 
-            height: 100%; 
-            overflow: hidden; 
-            background: #000; 
-            font-family: 'Courier New', monospace; 
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Ninja Adventure</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#1a1a2e; display:flex; justify-content:center; align-items:center;
+       height:100vh; overflow:hidden; font-family:sans-serif; }
+canvas { display:block; touch-action:none; }
 
-        /* O Canvas do Jogo */
-        #gameCanvas { 
-            display: block; 
-            width: 100vw; 
-            height: 100vh; 
-            touch-action: none; 
-        }
+/* ── Telas de UI ── */
+#screens { position:fixed; inset:0; display:flex; justify-content:center; align-items:center; }
+.screen  { display:none; flex-direction:column; align-items:center; gap:20px;
+           background:rgba(10,10,30,0.92); border:2px solid #4af; border-radius:16px;
+           padding:40px 48px; color:#fff; min-width:320px; text-align:center; }
+.screen.active { display:flex; }
 
-        /* Interface de Usuário (HUD) */
-        #hud {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #00f2ff;
-            pointer-events: none;
-            z-index: 10;
-            background: rgba(0, 20, 20, 0.8);
-            padding: 15px;
-            border-left: 4px solid #00f2ff;
-            box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
-        }
+h1 { font-size:2.4rem; color:#4af; letter-spacing:2px; }
+h2 { font-size:1.6rem; color:#fa4; }
+p  { color:#aac; font-size:1rem; line-height:1.5; }
 
-        .label { font-size: 0.7em; color: #555; display: block; }
-        .value { font-size: 1.1em; font-weight: bold; }
+.btn { background:#4af; color:#000; border:none; border-radius:8px;
+       padding:12px 32px; font-size:1.1rem; font-weight:700; cursor:pointer;
+       transition:background .15s; width:100%; }
+.btn:hover { background:#6cf; }
+.btn.danger { background:#f44; color:#fff; }
+.btn.danger:hover { background:#f66; }
+.btn.gray   { background:#555; color:#fff; }
+.btn.gray:hover { background:#777; }
 
-        /* Efeito de Scanlines (Linhas de TV antiga) */
-        .overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
-            background-size: 100% 4px;
-            pointer-events: none;
-            z-index: 100;
-            opacity: 0.3;
-        }
-    </style>
+input[type=text] { background:#222; border:1px solid #4af; border-radius:8px;
+                   color:#fff; padding:10px 14px; font-size:1rem; width:100%;
+                   outline:none; }
+
+/* skill choices */
+.skills { display:flex; gap:12px; }
+.skill-card { background:#0a0a20; border:2px solid #4af; border-radius:10px;
+              padding:16px; cursor:pointer; flex:1; transition:border-color .15s; }
+.skill-card:hover { border-color:#fa4; }
+.skill-card h3 { color:#fa4; margin-bottom:6px; font-size:1rem; }
+.skill-card p  { font-size:.85rem; }
+
+/* HUD */
+#hud { position:fixed; top:0; left:0; right:0; padding:10px 16px;
+       display:none; pointer-events:none; }
+.hud-row { display:flex; align-items:center; gap:10px; }
+.bar-bg  { background:#333; border-radius:4px; height:12px; flex:1; max-width:180px; }
+.bar-fill{ height:100%; border-radius:4px; transition:width .1s; }
+#hp-bar  { background:#e44; }
+#xp-bar  { background:#4ae; }
+.hud-txt { color:#fff; font-size:.85rem; min-width:60px; }
+
+/* Joystick */
+#joystick-zone { position:fixed; bottom:0; left:0; width:50%; height:45%;
+                 display:none; touch-action:none; }
+#jump-btn { position:fixed; bottom:40px; right:80px; width:64px; height:64px;
+            background:rgba(100,200,255,.25); border:2px solid rgba(100,200,255,.6);
+            border-radius:50%; display:none; align-items:center; justify-content:center;
+            font-size:1.5rem; color:#fff; user-select:none; touch-action:none; }
+#attack-btn { position:fixed; bottom:40px; right:160px; width:64px; height:64px;
+              background:rgba(255,150,50,.25); border:2px solid rgba(255,150,50,.6);
+              border-radius:50%; display:none; align-items:center; justify-content:center;
+              font-size:1.5rem; color:#fff; user-select:none; touch-action:none; }
+</style>
 </head>
 <body>
-    <div class="overlay"></div>
-    
-    <div id="hud">
-        <span class="label">SYSTEM STATUS</span>
-        <div id="status" class="value">CONNECTING...</div>
-        <br>
-        <span class="label">COORDINATES</span>
-        <div id="debug" class="value">X:0 Y:0</div>
+
+<canvas id="c"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-row">
+    <span class="hud-txt" id="hud-name">Ninja</span>
+    <div class="bar-bg"><div class="bar-fill" id="hp-bar" style="width:100%"></div></div>
+    <span class="hud-txt" id="hud-hp">100/100</span>
+    <span style="color:#fa4;margin-left:12px;font-size:.85rem" id="hud-level">Lv.1</span>
+  </div>
+  <div class="hud-row" style="margin-top:4px">
+    <span class="hud-txt" style="color:#aac;font-size:.75rem">XP</span>
+    <div class="bar-bg"><div class="bar-fill" id="xp-bar" style="width:0%"></div></div>
+  </div>
+  <div id="hud-players" style="color:#aac;font-size:.75rem;margin-top:4px"></div>
+</div>
+
+<!-- Joystick & botões touch -->
+<div id="joystick-zone"></div>
+<div id="jump-btn">↑</div>
+<div id="attack-btn">⚔</div>
+
+<!-- Telas -->
+<div id="screens">
+
+  <!-- MENU -->
+  <div id="screen-menu" class="screen active">
+    <h1>⚔ Ninja Adventure</h1>
+    <p>Jogo multiplayer de plataforma.<br>Lute contra monstros e suba de nível!</p>
+    <input id="name-input" type="text" placeholder="Seu nome (até 12 caracteres)" maxlength="12">
+    <button class="btn" onclick="goLobby()">Jogar</button>
+  </div>
+
+  <!-- LOBBY -->
+  <div id="screen-lobby" class="screen">
+    <h2>Sala de Espera</h2>
+    <p id="lobby-info">Conectando...</p>
+    <p style="color:#fa4" id="lobby-players"></p>
+    <button class="btn" onclick="startGame()">Entrar no jogo</button>
+    <button class="btn gray" onclick="goMenu()">Voltar</button>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="screen-gameover" class="screen">
+    <h2>💀 Derrotado!</h2>
+    <p>Você foi eliminado pelos monstros.</p>
+    <button class="btn" onclick="respawn()">Renascer</button>
+    <button class="btn gray" onclick="goMenu()">Menu</button>
+  </div>
+
+  <!-- LEVEL UP -->
+  <div id="screen-levelup" class="screen">
+    <h2>⬆ Subiu de Nível!</h2>
+    <p id="level-label">Nível 2</p>
+    <p>Escolha uma melhoria:</p>
+    <div class="skills">
+      <div class="skill-card" onclick="pickSkill('hp')">
+        <h3>❤ Vida</h3><p>+40 de HP máximo</p>
+      </div>
+      <div class="skill-card" onclick="pickSkill('dmg')">
+        <h3>⚔ Ataque</h3><p>+15 de dano</p>
+      </div>
+      <div class="skill-card" onclick="pickSkill('spd')">
+        <h3>💨 Velocidade</h3><p>Movimentação 20% mais rápida</p>
+      </div>
     </div>
+  </div>
 
-    <canvas id="gameCanvas"></canvas>
+</div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="game.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+// ─── ESTADO GLOBAL ────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const socket = io();
+
+let myId      = null;
+let platforms = [];
+let worldW    = 4000;
+let players   = {};
+let enemies   = {};
+let screen    = 'menu';
+
+// posição local (predição client-side)
+let localX = 100, localY = 460;
+let localVx = 0,  localVy = 0;
+let localOnGround = false;
+let localDir = 1;
+let localAnim = 'idle';
+let localAttackTimer = 0;
+let localSpeedMult = 1;
+
+// input
+const keys = {};
+const joy  = { active:false, baseX:0, baseY:0, vx:0, vy:0 };
+let jumpPressed = false, attackPressed = false;
+
+// animação
+const animState = {};
+const FRAME_W = 32, FRAME_H = 32;
+const ANIM = {
+  idle:   { file:'Idle',   cols:4, rows:4, row:1, fps:8  },
+  walk:   { file:'Walk',   cols:4, rows:4, row:1, fps:10 },
+  jump:   { file:'Jump',   cols:3, rows:4, row:1, fps:8  },
+  attack: { file:'Attack', cols:4, rows:4, row:1, fps:12 },
+  dead:   { file:'Dead',   cols:1, rows:2, row:0, fps:4  },
+};
+const sprites = {};
+const monsterSprites = {};
+let spritesReady = 0, spritesTotal = 0;
+
+function loadImg(src) {
+  spritesTotal++;
+  const img = new Image();
+  img.src = src;
+  img.onload = () => spritesReady++;
+  return img;
+}
+
+// carrega sprites do ninja
+for (const key in ANIM) {
+  sprites[key] = loadImg(`./assets/Actor/CharacterAnimated/NinjaGreen/Separate/${ANIM[key].file}.png`);
+}
+// sprites dos monstros (SpriteSheet.png único frame 64x64)
+monsterSprites.skull  = loadImg('./assets/Actor/Monster/Skull/SpriteSheet.png');
+monsterSprites.slime  = loadImg('./assets/Actor/Monster/Slime/Slime.png');
+monsterSprites.dragon = loadImg('./assets/Actor/Monster/Dragon/SpriteSheet.png');
+
+// ─── RESIZE ──────────────────────────────────────────────
+function resize() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ─── NAVEGAÇÃO DE TELAS ──────────────────────────────────
+function setScreen(id) {
+  screen = id;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + id);
+  if (el) el.classList.add('active');
+
+  const ingame = id === 'game';
+  document.getElementById('hud').style.display        = ingame ? 'block' : 'none';
+  document.getElementById('joystick-zone').style.display = ingame ? 'block' : 'none';
+  document.getElementById('jump-btn').style.display      = ingame ? 'flex'  : 'none';
+  document.getElementById('attack-btn').style.display    = ingame ? 'flex'  : 'none';
+}
+
+function goMenu()  { setScreen('menu'); }
+function goLobby() {
+  const n = document.getElementById('name-input').value.trim() || 'Ninja';
+  socket.emit('set_name', n);
+  setScreen('lobby');
+}
+function startGame() { setScreen('game'); }
+function respawn()   { socket.emit('respawn'); setScreen('game'); }
+function pickSkill(type) {
+  if (type === 'hp')  { /* servidor já deu +20, adicionamos mais 20 visualmente */ }
+  if (type === 'spd') { localSpeedMult = Math.min(localSpeedMult * 1.2, 2); }
+  setScreen('game');
+}
+
+// ─── SOCKET ──────────────────────────────────────────────
+socket.on('connect',    () => { myId = socket.id; });
+socket.on('disconnect', () => { setScreen('menu'); });
+
+socket.on('init', data => {
+  platforms = data.platforms;
+  worldW    = data.worldW;
+  document.getElementById('lobby-info').textContent = 'Conectado! Pronto para jogar.';
+});
+
+socket.on('world', data => {
+  players = data.players;
+  enemies = {};
+  for (const en of data.enemies) enemies[en.id] = en;
+
+  if (myId && players[myId]) updateHUD(players[myId]);
+
+  const names = Object.values(players)
+    .filter(p => p.id !== myId)
+    .map(p => p.name).join(', ');
+  document.getElementById('lobby-players').textContent =
+    Object.keys(players).length > 1 ? 'Online: ' + names : 'Você está sozinho.';
+  document.getElementById('hud-players').textContent =
+    Object.keys(players).length > 1 ? 'Online: ' + Object.values(players).map(p=>p.name).join(', ') : '';
+
+  // sincroniza posição local se divergir muito do servidor
+  if (myId && players[myId] && !players[myId].dead) {
+    const sp = players[myId];
+    const dx = sp.x - localX, dy = sp.y - localY;
+    if (Math.sqrt(dx*dx + dy*dy) > 120) { localX = sp.x; localY = sp.y; }
+  }
+});
+
+socket.on('game_over', () => {
+  if (screen === 'game') setScreen('gameover');
+});
+
+socket.on('level_up', data => {
+  document.getElementById('level-label').textContent = 'Nível ' + data.level;
+  setScreen('levelup');
+});
+
+// ─── HUD ─────────────────────────────────────────────────
+function updateHUD(p) {
+  document.getElementById('hud-name').textContent = p.name;
+  document.getElementById('hud-level').textContent = 'Lv.' + p.level;
+  document.getElementById('hp-bar').style.width = Math.max(0, p.hp / p.maxHp * 100) + '%';
+  document.getElementById('hud-hp').textContent = Math.max(0,p.hp) + '/' + p.maxHp;
+  document.getElementById('xp-bar').style.width = (p.xp / p.nextXp * 100) + '%';
+}
+
+// ─── TECLADO ─────────────────────────────────────────────
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') jumpPressed = true;
+  if (e.code === 'KeyZ' || e.code === 'KeyJ') attackPressed = true;
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// ─── JOYSTICK TOUCH ──────────────────────────────────────
+const jZone = document.getElementById('joystick-zone');
+jZone.addEventListener('touchstart', e => {
+  const t = e.changedTouches[0];
+  joy.active = true;
+  joy.baseX = t.clientX; joy.baseY = t.clientY;
+  joy.vx = 0; joy.vy = 0;
+}, { passive: true });
+jZone.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.targetTouches[0];
+  let dx = t.clientX - joy.baseX, dy = t.clientY - joy.baseY;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  if (dist > 50) { dx *= 50/dist; dy *= 50/dist; }
+  joy.vx = dx / 50; joy.vy = dy / 50;
+}, { passive: false });
+jZone.addEventListener('touchend', () => { joy.active = false; joy.vx = 0; joy.vy = 0; });
+
+// botão de pulo touch
+const jBtn = document.getElementById('jump-btn');
+jBtn.addEventListener('touchstart', e => { e.preventDefault(); jumpPressed = true; }, { passive:false });
+jBtn.addEventListener('touchend',   e => { e.preventDefault(); }, { passive:false });
+
+// botão de ataque touch
+const aBtn = document.getElementById('attack-btn');
+aBtn.addEventListener('touchstart', e => { e.preventDefault(); attackPressed = true; }, { passive:false });
+aBtn.addEventListener('touchend',   e => { e.preventDefault(); }, { passive:false });
+
+// ─── FÍSICA LOCAL ────────────────────────────────────────
+const GRAVITY_C    = 0.55;
+const JUMP_FORCE_C = -13;
+const SPD_C        = 4;
+
+function localPhysics(dt) {
+  localVy += GRAVITY_C;
+  localX  += localVx;
+  localY  += localVy;
+  localOnGround = false;
+
+  for (const p of platforms) {
+    const prevB = localY + 32 - localVy;
+    if (localX + 32 > p.x && localX < p.x + p.w &&
+        localY + 32 >= p.y && prevB <= p.y + 4 && localVy >= 0) {
+      localY = p.y - 32; localVy = 0; localOnGround = true;
+    }
+  }
+  if (localX < 0)           { localX = 0; localVx = 0; }
+  if (localX + 32 > worldW) { localX = worldW - 32; localVx = 0; }
+  if (localY > 700)         { localY = 460; localVy = 0; }
+}
+
+// ─── LOOP PRINCIPAL ──────────────────────────────────────
+let lastEmit = 0;
+let lastTs   = 0;
+let frameN   = 0;
+
+function getAnim(id) {
+  if (!animState[id]) animState[id] = { key:'idle', frame:0, tick:0 };
+  return animState[id];
+}
+
+function advanceAnim(st, key) {
+  if (st.key !== key) { st.key = key; st.frame = 0; st.tick = 0; }
+  const cfg = ANIM[key];
+  st.tick++;
+  const delay = Math.round(60 / cfg.fps);
+  if (st.tick >= delay) { st.tick = 0; st.frame = (st.frame + 1) % cfg.cols; }
+  if (key === 'attack' && st.frame === 0 && st.tick === 0 && localAttackTimer <= 0) {
+    // ataque terminou
+  }
+}
+
+function drawSprite(key, frame, x, y, dir) {
+  const img = sprites[key];
+  if (!img || !img.complete) {
+    // fallback: retângulo colorido
+    ctx.fillStyle = '#4af';
+    ctx.fillRect(x, y, 32, 32);
+    return;
+  }
+  const cfg = ANIM[key];
+  const sx = frame * FRAME_W;
+  const sy = cfg.row * FRAME_H;
+  ctx.save();
+  ctx.translate(x + 16, y + 16);
+  if (dir === -1) ctx.scale(-1, 1);
+  ctx.drawImage(img, sx, sy, FRAME_W, FRAME_H, -16, -16, 32, 32);
+  ctx.restore();
+}
+
+function drawMonster(en) {
+  const img = monsterSprites[en.type];
+  const x = en.x, y = en.y;
+
+  ctx.save();
+  ctx.translate(x + 16, y + 16);
+  if (en.dir === -1) ctx.scale(-1, 1);
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, 0, 0, 32, 32, -16, -16, 32, 32);
+  } else {
+    const colors = { skull:'#aaa', slime:'#4f4', dragon:'#f44' };
+    ctx.fillStyle = colors[en.type] || '#888';
+    ctx.fillRect(-16, -16, 32, 32);
+  }
+  ctx.restore();
+
+  // barra de HP
+  const pct = en.hp / en.maxHp;
+  ctx.fillStyle = '#333';
+  ctx.fillRect(x, y - 8, 32, 4);
+  ctx.fillStyle = pct > 0.5 ? '#4f4' : pct > 0.25 ? '#fa4' : '#f44';
+  ctx.fillRect(x, y - 8, 32 * pct, 4);
+}
+
+function drawPlayer(p, isMe) {
+  const px = isMe ? localX : p.x;
+  const py = isMe ? localY : p.y;
+  const dir = isMe ? localDir : (p.dir || 1);
+
+  let animKey = 'idle';
+  if (p.dead) animKey = 'dead';
+  else if (isMe) {
+    if (localAttackTimer > 0)     animKey = 'attack';
+    else if (!localOnGround)      animKey = 'jump';
+    else if (Math.abs(localVx) > 0.1) animKey = 'walk';
+  } else {
+    animKey = p.anim || 'idle';
+  }
+
+  const st = getAnim(p.id);
+  advanceAnim(st, animKey);
+
+  drawSprite(animKey, st.frame, px, py, dir);
+
+  // nome
+  ctx.fillStyle = isMe ? '#4af' : '#fa4';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(p.name || 'Ninja', px + 16, py - 10);
+
+  // barra de HP
+  const pct = Math.max(0, p.hp / p.maxHp);
+  ctx.fillStyle = '#333';
+  ctx.fillRect(px, py - 6, 32, 3);
+  ctx.fillStyle = isMe ? '#4ae' : '#e44';
+  ctx.fillRect(px, py - 6, 32 * pct, 3);
+}
+
+function drawBackground(camX) {
+  // céu
+  ctx.fillStyle = '#0d1b2a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // estrelas (fixas)
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  const stars = [[50,30],[120,60],[300,20],[500,45],[700,15],[900,55],[1100,25],
+                  [200,80],[400,10],[600,70],[800,35],[1000,60]];
+  for (const [sx,sy] of stars) {
+    const wx = ((sx * 0.2 - camX * 0.05) % canvas.width + canvas.width) % canvas.width;
+    ctx.fillRect(wx, sy, 2, 2);
+  }
+
+  // chão (fundo escuro)
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+}
+
+function drawPlatforms(camX, camY) {
+  ctx.fillStyle = '#2a4a2a';
+  ctx.strokeStyle = '#4f7a4f';
+  ctx.lineWidth = 1;
+  for (const p of platforms) {
+    const sx = p.x - camX, sy = p.y - camY;
+    if (sx + p.w < 0 || sx > canvas.width) continue;
+    ctx.fillRect(sx, sy, p.w, p.h);
+    ctx.strokeRect(sx, sy, p.w, p.h);
+    // borda superior mais clara
+    ctx.fillStyle = '#5a9a5a';
+    ctx.fillRect(sx, sy, p.w, 4);
+    ctx.fillStyle = '#2a4a2a';
+  }
+}
+
+function drawJoystick() {
+  if (!joy.active) return;
+  const cx = joy.baseX, cy = joy.baseY;
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = '#4af';
+  ctx.beginPath(); ctx.arc(cx, cy, 50, 0, Math.PI*2); ctx.fill();
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(cx + joy.vx*50, cy + joy.vy*50, 20, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function gameLoop(ts) {
+  requestAnimationFrame(gameLoop);
+  frameN++;
+
+  if (screen !== 'game') {
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawJoystick();
+    return;
+  }
+
+  // ── INPUT ──
+  let inputVx = 0;
+  if (keys['ArrowLeft']  || keys['KeyA']) inputVx = -1;
+  if (keys['ArrowRight'] || keys['KeyD']) inputVx =  1;
+  if (joy.active && Math.abs(joy.vx) > 0.15) inputVx = joy.vx > 0 ? 1 : -1;
+  if (joy.active && joy.vy < -0.5 && localOnGround) jumpPressed = true;
+
+  // ── FÍSICA LOCAL ──
+  localVx = inputVx * SPD_C * localSpeedMult;
+  if (jumpPressed && localOnGround) {
+    localVy = JUMP_FORCE_C;
+    localOnGround = false;
+  }
+  if (inputVx !== 0) localDir = inputVx > 0 ? 1 : -1;
+  if (localAttackTimer > 0) localAttackTimer--;
+
+  localPhysics();
+
+  // ── DETERMINA ANIMAÇÃO LOCAL ──
+  if (localAttackTimer > 0)         localAnim = 'attack';
+  else if (!localOnGround)          localAnim = 'jump';
+  else if (Math.abs(localVx) > 0.1) localAnim = 'walk';
+  else                              localAnim = 'idle';
+
+  // ── EMITE INPUT ──
+  if (ts - lastEmit >= 50) {
+    const doAttack = attackPressed;
+    if (doAttack) localAttackTimer = 25;
+    socket.emit('input', {
+      vx: inputVx, jump: jumpPressed,
+      dir: localDir, anim: localAnim,
+      attack: doAttack,
+    });
+    lastEmit = ts;
+    jumpPressed = false;
+    attackPressed = false;
+  } else {
+    jumpPressed = false;
+    attackPressed = false;
+  }
+
+  // ── CÂMERA ──
+  const camX = Math.max(0, Math.min(worldW - canvas.width,  localX - canvas.width  / 2));
+  const camY = Math.max(0, Math.min(600   - canvas.height, localY - canvas.height / 2));
+
+  // ── RENDER ──
+  drawBackground(camX);
+  drawPlatforms(camX, camY);
+
+  ctx.save();
+  ctx.translate(-camX, -camY);
+
+  // inimigos
+  for (const id in enemies) drawMonster(enemies[id]);
+
+  // jogadores remotos
+  for (const id in players) {
+    if (id !== myId) drawPlayer(players[id], false);
+  }
+
+  // jogador local
+  if (myId && players[myId]) drawPlayer(players[myId], true);
+
+  // efeito de ataque
+  if (localAttackTimer > 18 && myId && players[myId]) {
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = '#fa4';
+    ctx.lineWidth = 3;
+    const ax = localX + (localDir === 1 ? 32 : -18), ay = localY + 8;
+    ctx.beginPath();
+    ctx.arc(ax, ay, 24, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.restore();
+
+  drawJoystick();
+  lastTs = ts;
+}
+
+requestAnimationFrame(gameLoop);
+</script>
 </body>
-</html>
+    </html>
