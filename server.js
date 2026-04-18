@@ -12,22 +12,21 @@ app.use(express.static(path.join(__dirname, 'public')));
 let players = {};
 let bullets = [];
 let enemies = [];
-const MAX_ENEMIES = 15; // Reduzi um pouco para equilibrar
+const MAX_ENEMIES = 15;
 
-// Tipos de Inimigos e suas configurações
 const ENEMY_TYPES = {
     SHOOTER: { 
-        health: 40, maxHealth: 40, color: '#00f2ff', // Ciano
+        health: 40, maxHealth: 40, color: '#00f2ff', 
         speed: 2, range: 450, fireRate: 1500, type: 'shooter' 
     },
     MELEE: { 
-        health: 70, maxHealth: 70, color: '#ff3333', // Vermelho
-        speed: 4, range: 40, attackDamage: 15, type: 'melee' // Dano de faca
+        health: 70, maxHealth: 70, color: '#ff3333', 
+        speed: 3.5, range: 40, attackDamage: 12, type: 'melee' 
     }
 };
 
 function spawnEnemy() {
-    const isMelee = Math.random() > 0.4; // 60% Melee, 40% Shooter
+    const isMelee = Math.random() > 0.4;
     const config = isMelee ? ENEMY_TYPES.MELEE : ENEMY_TYPES.SHOOTER;
     return {
         id: 'bot_' + Math.random(),
@@ -45,39 +44,44 @@ function spawnEnemy() {
     };
 }
 
-// Inicializa a horda mista
-for (let i = 0; i < MAX_ENEMIES; i++) {
-    enemies.push(spawnEnemy());
-}
+for (let i = 0; i < MAX_ENEMIES; i++) { enemies.push(spawnEnemy()); }
 
 io.on('connection', (socket) => {
     players[socket.id] = {
         id: socket.id,
         x: 300, y: 300,
         color: '#' + Math.floor(Math.random()*16777215).toString(16),
-        health: 100, // Vida real do player
-        lastShot: 0
+        health: 100,
+        lastShot: 0,
+        dead: false
     };
 
     socket.on('player_movement', (data) => {
-        if (players[socket.id]) {
+        if (players[socket.id] && !players[socket.id].dead) {
             players[socket.id].x = data.x;
             players[socket.id].y = data.y;
+        }
+    });
+
+    socket.on('respawn_request', () => {
+        if (players[socket.id]) {
+            players[socket.id].health = 100;
+            players[socket.id].x = 300;
+            players[socket.id].y = 300;
+            players[socket.id].dead = false;
         }
     });
 
     socket.on('shoot', (data) => {
         const now = Date.now();
         const p = players[socket.id];
-        // CADÊNCIA DE TIRO PLAYER: 400ms (Mais estratégico)
-        if (p && now - p.lastShot > 400) {
+        if (p && !p.dead && now - p.lastShot > 400) {
             bullets.push({
                 id: Math.random(),
-                owner: socket.id, // ID do player
+                owner: socket.id,
                 x: data.x, y: data.y,
                 vX: data.vX * 18, vY: data.vY * 18,
-                life: 60,
-                damage: 10 // Dano base da bala do player
+                life: 60, damage: 15
             });
             p.lastShot = now;
         }
@@ -89,87 +93,71 @@ io.on('connection', (socket) => {
 setInterval(() => {
     const now = Date.now();
 
-    // IA dos Inimigos (Meele e Shooter)
     enemies.forEach(en => {
         let nearestPlayer = null;
         let minDist = 1500;
         for (let id in players) {
             let p = players[id];
+            if (p.dead) continue;
             let d = Math.sqrt(Math.pow(en.x - p.x, 2) + Math.pow(en.y - p.y, 2));
             if (d < minDist) { minDist = d; nearestPlayer = p; }
         }
 
-        if (nearestPlayer && minDist < 1000) {
+        if (nearestPlayer) {
             let dx = nearestPlayer.x - en.x;
             let dy = nearestPlayer.y - en.y;
 
-            // Movimento da IA
             if (en.type === 'shooter') {
-                // Shooter tenta manter distância
-                if (minDist > en.range - 100) {
+                if (minDist > 300) {
                     en.x += (dx / minDist) * en.speed; en.y += (dy / minDist) * en.speed;
-                } else if (minDist < en.range - 200) {
-                    en.x -= (dx / minDist) * en.speed; en.y -= (dy / minDist) * en.speed;
                 }
-                
-                // Tiro do inimigo
-                if (minDist < en.range && now - en.lastShot > en.fireRate) {
+                if (minDist < 500 && now - en.lastShot > en.fireRate) {
                     bullets.push({
-                        id: Math.random(),
-                        owner: en.id, // Bala do inimigo
+                        id: Math.random(), owner: en.id,
                         x: en.x, y: en.y,
-                        vX: (dx / minDist) * 12, vY: (dy / minDist) * 12,
-                        life: 70,
-                        damage: 8 // Dano da bala do bot
+                        vX: (dx / minDist) * 10, vY: (dy / minDist) * 10,
+                        life: 80, damage: 10
                     });
                     en.lastShot = now;
                 }
-            } else if (en.type === 'melee') {
-                // Melee corre direto pro player
+            } else {
                 en.x += (dx / minDist) * en.speed; en.y += (dy / minDist) * en.speed;
-                
-                // Ataque de contato (Faca)
-                if (minDist < 25) {
-                    nearestPlayer.health -= en.attackDamage / 30; // Dano por frame
+                if (minDist < 30) { 
+                    nearestPlayer.health -= 0.5; 
+                    if(nearestPlayer.health <= 0) {
+                        nearestPlayer.dead = true;
+                        io.to(nearestPlayer.id).emit('game_over');
+                    }
                 }
-            }
-
-            // CORREÇÃO DE BUG: Morte do Player
-            if (nearestPlayer.health <= 0) {
-                // Respawn do Player
-                nearestPlayer.health = 100;
-                nearestPlayer.x = 300; nearestPlayer.y = 300;
-                // Opcional: Notificar morte
             }
         }
     });
 
-    // Colisões e Dano
     bullets.forEach((b, bIdx) => {
         b.x += b.vX; b.y += b.vY; b.life--;
         
-        // Bala acerta Inimigo?
         enemies.forEach((en, eIdx) => {
             let d = Math.sqrt(Math.pow(b.x - en.x, 2) + Math.pow(b.y - en.y, 2));
             if (b.owner !== en.id && d < 30) {
                 en.health -= b.damage;
-                // NOVO: Envia o dano flutuante para o cliente
-                io.emit('damage_text', { x: en.x, y: en.y, text: b.damage });
+                io.emit('damage_effect', { x: en.x, y: en.y, dmg: b.damage });
                 bullets.splice(bIdx, 1);
-                
-                // Respawn do inimigo
-                if (en.health <= 0) { enemies[eIdx] = spawnEnemy(); }
+                if (en.health <= 0) enemies[eIdx] = spawnEnemy();
             }
         });
 
-        // Bala acerta Player?
         for (let id in players) {
             let p = players[id];
+            if (p.dead) continue;
             let d = Math.sqrt(Math.pow(b.x - p.x, 2) + Math.pow(b.y - p.y, 2));
-            if (b.owner !== id && d < 20) {
+            if (b.owner !== id && d < 25) {
                 p.health -= b.damage;
-                io.emit('damage_text', { x: p.x, y: p.y, text: b.damage, color: '#f00' });
+                io.emit('damage_effect', { x: p.x, y: p.y, dmg: b.damage, color: 'red' });
                 bullets.splice(bIdx, 1);
+                if (p.health <= 0) {
+                    p.dead = true;
+                    io.to(id).emit('game_over');
+                }
             }
         }
         if (b.life <= 0) bullets.splice(bIdx, 1);
@@ -178,6 +166,5 @@ setInterval(() => {
     io.emit('update_world', { players, bullets, enemies });
 }, 30);
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => console.log('Horda Mista Ativa'));
-        
+server.listen(process.env.PORT || 3000, '0.0.0.0');
+            
