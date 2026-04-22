@@ -1,1 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Herdeiro do Vento RPG</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
+    <div id="login-screen">
+        <div class="login-box">
+            <h1>HERDEIRO DO VENTO</h1>
+            <input type="text" id="username" placeholder="Usuário" maxlength="12">
+            <input type="password" id="password" placeholder="Senha">
+            
+            <div class="class-selection">
+                <button class="class-btn active" data-class="ninja">NINJA</button>
+                <button class="class-btn" data-class="guerreiro">GUERREIRO</button>
+                <button class="class-btn" data-class="mago">MAGO</button>
+            </div>
+
+            <div class="auth-buttons">
+                <button id="btn-login">ENTRAR</button>
+                <button id="btn-register">CRIAR CONTA</button>
+            </div>
+            <p id="auth-msg"></p>
+        </div>
+    </div>
+
+    <div id="game-ui" style="display: none;">
+        <div class="hud-top">
+            <div class="stats-container">
+                <div class="hp-bar">
+                    <div id="hp-fill"></div>
+                    <span id="hp-text">100/100</span>
+                </div>
+                <div class="gold-info">💰 <span id="player-gold">0</span>g</div>
+            </div>
+        </div>
+
+        <div id="chat-container">
+            <div id="chat-messages"></div>
+            <div class="chat-input-row">
+                <input type="text" id="chat-input" placeholder="Mensagem..." maxlength="50">
+                <button id="btn-send-chat">></button>
+            </div>
+        </div>
+
+        <button id="btn-open-menu" class="ctrl-btn">MENU</button>
+
+        <div id="main-menu-modal" class="modal-overlay" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="tabs-row">
+                        <button class="tab-btn active" data-tab="tab-inv">MOCHILA</button>
+                        <button class="tab-btn" data-tab="tab-stats">ATRIBUTOS</button>
+                        <button class="tab-btn" data-tab="tab-skills">SKILLS</button>
+                        <button class="tab-btn" data-tab="tab-quests">MISSÕES</button>
+                        <button class="tab-btn" data-tab="tab-codex">CODEX</button>
+                    </div>
+                    <button id="btn-close-menu">X</button>
+                </div>
+
+                <div class="modal-body">
+                    <div id="tab-inv" class="tab-content">
+                        <h3>Equipamento</h3>
+                        <div class="equipment-paperdoll">
+                            <div class="slot">Elmo</div>
+                            <div class="slot">Peito</div>
+                            <div class="slot">Arma</div>
+                            <div class="slot">Botas</div>
+                        </div>
+                        <h3>Inventário</h3>
+                        <div class="backpack-grid" id="inventory-slots"></div>
+                    </div>
+
+                    <div id="tab-stats" class="tab-content" style="display:none;">
+                        <h3>Evolução de Personagem</h3>
+                        <div class="stats-list">
+                            <p>FORÇA: <span id="stat-str">0</span> <button class="plus-btn" data-stat="str">+</button></p>
+                            <p>AGILIDADE: <span id="stat-agi">0</span> <button class="plus-btn" data-stat="agi">+</button></p>
+                            <p>INTELIGÊNCIA: <span id="stat-int">0</span> <button class="plus-btn" data-stat="int">+</button></p>
+                            <p>VITALIDADE: <span id="stat-vit">0</span> <button class="plus-btn" data-stat="vit">+</button></p>
+                            <hr>
+                            <p style="color:#f1c40f">PONTOS DISPONÍVEIS: <span id="stat-points">0</span></p>
+                        </div>
+                    </div>
+
+                    <div id="tab-skills" class="tab-content" style="display:none;">
+                        <h3>Habilidades de Classe</h3>
+                        <div id="skill-tree"></div>
+                    </div>
+
+                    <div id="tab-quests" class="tab-content" style="display:none;">
+                        <h3>Diário de Aventuras</h3>
+                        <div id="quest-list"></div>
+                    </div>
+
+                    <div id="tab-codex" class="tab-content" style="display:none;">
+                        <h3>Bestiário Conhecido</h3>
+                        <div id="bestiary-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="mobile-controls">
+            <div class="d-pad">
+                <button id="btn-left" class="ctrl-btn">◀</button>
+                <button id="btn-right" class="ctrl-btn">▶</button>
+            </div>
+            <div class="action-buttons">
+                <button id="btn-jump" class="ctrl-btn">PULO</button>
+                <button id="btn-attack" class="ctrl-btn">ATK</button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="game.js"></script>
+</body>
+                          </html>
+                          
