@@ -2,7 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs').promises;
 
-const DB_PATH = path.join(__dirname, 'game.db');
+const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'game.db');
 
 class Database {
     constructor() {

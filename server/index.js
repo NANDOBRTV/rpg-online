@@ -504,7 +504,7 @@ setInterval(() => {
 
 const PORT = process.env.PORT || 3000;
 db.db.serialize(() => {
-    server.listen(PORT, () => {
+    server.listen(PORT, '0.0.0.0', () => {
         console.log(`\n🎮 ========== HERDEIRO DO VENTO RPG ==========`);
         console.log(`✓ Servidor rodando em http://localhost:${PORT}`);
         console.log(`✓ Banco de dados SQLite inicializado`);
