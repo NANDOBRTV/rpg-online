@@ -1,4 +1,7 @@
-const socket = io();
+const socket = io({
+    transports: ['websocket', 'polling'],
+    upgrade: true
+});
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
