@@ -4,21 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Herdeiro do Vento RPG</title>
+    <meta name="theme-color" content="#1a1a1a">
+    <title>Herdeiro do Vento RPG - MMORPG Multiplayer</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="login-screen">
         <div class="login-box">
-            <h1>HERDEIRO DO VENTO</h1>
+            <h1>⚔️ HERDEIRO DO VENTO ⚔️</h1>
+            <p style="color:#aaa; margin-bottom:20px; font-size:12px;">MMORPG Multiplayer Inspirado em Correntes de Ar</p>
+            
             <input type="text" id="username" placeholder="Usuário" maxlength="12">
-            <input type="password" id="password" placeholder="Senha">
+            <input type="password" id="password" placeholder="Senha" maxlength="20">
             
             <div class="class-selection">
-                <button class="class-btn active" data-class="ninja">NINJA</button>
-                <button class="class-btn" data-class="guerreiro">GUERREIRO</button>
-                <button class="class-btn" data-class="mago">MAGO</button>
+                <button class="class-btn active" data-class="ninja">🥷 NINJA</button>
+                <button class="class-btn" data-class="guerreiro">⚔️ GUERREIRO</button>
+                <button class="class-btn" data-class="mago">🔮 MAGO</button>
             </div>
 
             <div class="auth-buttons">
@@ -43,65 +46,118 @@
         <div id="chat-container">
             <div id="chat-messages"></div>
             <div class="chat-input-row">
-                <input type="text" id="chat-input" placeholder="Mensagem..." maxlength="50">
+                <input type="text" id="chat-input" placeholder="Mensagem..." maxlength="100">
                 <button id="btn-send-chat">></button>
             </div>
         </div>
 
-        <button id="btn-open-menu" class="ctrl-btn">MENU</button>
+        <button id="btn-open-menu" class="ctrl-btn">📋 MENU</button>
 
         <div id="main-menu-modal" class="modal-overlay" style="display: none;">
             <div class="modal-content">
                 <div class="modal-header">
                     <div class="tabs-row">
-                        <button class="tab-btn active" data-tab="tab-inv">MOCHILA</button>
-                        <button class="tab-btn" data-tab="tab-stats">ATRIBUTOS</button>
-                        <button class="tab-btn" data-tab="tab-skills">SKILLS</button>
-                        <button class="tab-btn" data-tab="tab-quests">MISSÕES</button>
-                        <button class="tab-btn" data-tab="tab-codex">CODEX</button>
+                        <button class="tab-btn active" data-tab="tab-inv">🎒 MOCHILA</button>
+                        <button class="tab-btn" data-tab="tab-stats">📊 ATRIBUTOS</button>
+                        <button class="tab-btn" data-tab="tab-skills">⚡ SKILLS</button>
+                        <button class="tab-btn" data-tab="tab-quests">📜 MISSÕES</button>
+                        <button class="tab-btn" data-tab="tab-codex">📖 CODEX</button>
+                        <button class="tab-btn" data-tab="tab-clans">👥 CLÃS</button>
                     </div>
-                    <button id="btn-close-menu">X</button>
+                    <button id="btn-close-menu">✕</button>
                 </div>
 
                 <div class="modal-body">
+                    <!-- TAB: INVENTÁRIO -->
                     <div id="tab-inv" class="tab-content">
-                        <h3>Equipamento</h3>
+                        <h3>⚔️ Equipamento</h3>
                         <div class="equipment-paperdoll">
-                            <div class="slot">Elmo</div>
-                            <div class="slot">Peito</div>
-                            <div class="slot">Arma</div>
-                            <div class="slot">Botas</div>
+                            <div class="slot" title="Elmo">👑</div>
+                            <div class="slot" title="Peito">🛡️</div>
+                            <div class="slot" title="Arma">⚔️</div>
+                            <div class="slot" title="Botas">👢</div>
                         </div>
-                        <h3>Inventário</h3>
+                        <h3>🎒 Inventário</h3>
                         <div class="backpack-grid" id="inventory-slots"></div>
                     </div>
 
+                    <!-- TAB: ATRIBUTOS -->
                     <div id="tab-stats" class="tab-content" style="display:none;">
-                        <h3>Evolução de Personagem</h3>
+                        <h3>📊 Evolução de Personagem</h3>
                         <div class="stats-list">
-                            <p>FORÇA: <span id="stat-str">0</span> <button class="plus-btn" data-stat="str">+</button></p>
-                            <p>AGILIDADE: <span id="stat-agi">0</span> <button class="plus-btn" data-stat="agi">+</button></p>
-                            <p>INTELIGÊNCIA: <span id="stat-int">0</span> <button class="plus-btn" data-stat="int">+</button></p>
-                            <p>VITALIDADE: <span id="stat-vit">0</span> <button class="plus-btn" data-stat="vit">+</button></p>
-                            <hr>
-                            <p style="color:#f1c40f">PONTOS DISPONÍVEIS: <span id="stat-points">0</span></p>
+                            <p>
+                                <span>💪 FORÇA: <span id="stat-str" style="color:#e74c3c;">0</span></span>
+                                <button class="plus-btn" data-stat="str">+</button>
+                            </p>
+                            <p>
+                                <span>⚡ AGILIDADE: <span id="stat-agi" style="color:#f39c12;">0</span></span>
+                                <button class="plus-btn" data-stat="agi">+</button>
+                            </p>
+                            <p>
+                                <span>🔮 INTELIGÊNCIA: <span id="stat-int" style="color:#9b59b6;">0</span></span>
+                                <button class="plus-btn" data-stat="int">+</button>
+                            </p>
+                            <p>
+                                <span>❤️ VITALIDADE: <span id="stat-vit" style="color:#2ecc71;">0</span></span>
+                                <button class="plus-btn" data-stat="vit">+</button>
+                            </p>
+                            <hr style="border:none; border-top:1px solid #444; margin:15px 0;">
+                            <p style="color:#f1c40f; justify-content:center;">
+                                ⭐ PONTOS DISPONÍVEIS: <span id="stat-points">0</span>
+                            </p>
                         </div>
                     </div>
 
+                    <!-- TAB: SKILLS -->
                     <div id="tab-skills" class="tab-content" style="display:none;">
-                        <h3>Habilidades de Classe</h3>
+                        <h3>⚡ Habilidades de Classe</h3>
                         <div id="skill-tree"></div>
                     </div>
 
+                    <!-- TAB: QUESTS -->
                     <div id="tab-quests" class="tab-content" style="display:none;">
-                        <h3>Diário de Aventuras</h3>
+                        <h3>📜 Diário de Aventuras</h3>
                         <div id="quest-list"></div>
                     </div>
 
+                    <!-- TAB: CODEX -->
                     <div id="tab-codex" class="tab-content" style="display:none;">
-                        <h3>Bestiário Conhecido</h3>
+                        <h3>📖 Bestiário Conhecido</h3>
                         <div id="bestiary-list"></div>
                     </div>
+
+                    <!-- TAB: CLÃS -->
+                    <div id="tab-clans" class="tab-content" style="display:none;">
+                        <h3>👥 Clãs e Guildas</h3>
+                        <div style="background:#2f3640; padding:15px; border-radius:8px; margin-bottom:15px;">
+                            <p style="margin-bottom:10px; color:#aaa;">Crie ou entre em um clã para cooperar com outros jogadores!</p>
+                            <div style="display:flex; gap:10px;">
+                                <button class="plus-btn" style="flex:1; padding:10px;" onclick="showCreateClanModal()">
+                                    ➕ CRIAR CLÃ
+                                </button>
+                                <button class="plus-btn" style="flex:1; padding:10px;" onclick="showJoinClanModal()">
+                                    🔗 ENTRAR CLÃ
+                                </button>
+                            </div>
+                        </div>
+                        <h3 style="margin-top:20px;">Meus Clãs</h3>
+                        <div id="my-clans" style="color:#aaa;">Você não está em nenhum clã</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: CRIAR CLÃ -->
+        <div id="create-clan-modal" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="width:400px; height:auto; max-height:80%;">
+                <div class="modal-header">
+                    <h3 style="flex:1; margin:0;">Criar Novo Clã</h3>
+                    <button id="btn-close-create-clan" class="plus-btn" style="background:#e74c3c; width:auto; padding:5px 10px;">✕</button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="clan-name" placeholder="Nome do Clã" maxlength="20" style="width:100%; padding:10px; margin-bottom:10px; background:#2f3640; border:1px solid #444; color:#fff; border-radius:5px;">
+                    <textarea id="clan-desc" placeholder="Descrição (opcional)" maxlength="100" style="width:100%; padding:10px; margin-bottom:10px; background:#2f3640; border:1px solid #444; color:#fff; border-radius:5px; resize:none; height:80px;"></textarea>
+                    <button class="plus-btn" style="width:100%; padding:12px;" onclick="createClan()">CRIAR CLÃ</button>
                 </div>
             </div>
         </div>
@@ -113,7 +169,7 @@
             </div>
             <div class="action-buttons">
                 <button id="btn-jump" class="ctrl-btn">PULO</button>
-                <button id="btn-attack" class="ctrl-btn">ATK</button>
+                <button id="btn-attack" class="ctrl-btn">⚔️ ATK</button>
             </div>
         </div>
     </div>
@@ -122,6 +178,38 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="game.js"></script>
+    <script>
+        function showCreateClanModal() {
+            document.getElementById('create-clan-modal').style.display = 'flex';
+        }
+
+        function hideCreateClanModal() {
+            document.getElementById('create-clan-modal').style.display = 'none';
+        }
+
+        function createClan() {
+            const name = document.getElementById('clan-name').value;
+            const desc = document.getElementById('clan-desc').value;
+            
+            if (!name || name.length < 3) {
+                alert('Nome do clã deve ter pelo menos 3 caracteres');
+                return;
+            }
+
+            socket.emit('createClan', { clanName: name, description: desc });
+            hideCreateClanModal();
+            document.getElementById('clan-name').value = '';
+            document.getElementById('clan-desc').value = '';
+        }
+
+        function showJoinClanModal() {
+            const clanId = prompt('Digite o ID do clã para entrar:');
+            if (clanId) {
+                socket.emit('joinClan', clanId);
+            }
+        }
+
+        document.getElementById('btn-close-create-clan').onclick = hideCreateClanModal;
+    </script>
 </body>
-                          </html>
-                          
+</html>
