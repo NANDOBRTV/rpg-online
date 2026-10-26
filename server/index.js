@@ -12,11 +12,33 @@ const enemySystem = require('./enemies');
 
 const app = express();
 const server = http.createServer(app);
+const allowedOrigins = (process.env.SOCKET_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
 const io = new Server(server, {
     cors: {
-        origin: "*",
+        // Same-origin funciona sem CORS; domínios externos devem ser configurados
+        // explicitamente em SOCKET_ALLOWED_ORIGINS, separados por vírgula.
+        origin: allowedOrigins.length ? allowedOrigins : false,
         methods: ["GET", "POST"],
         credentials: true
+    },
+    // CORS não restringe WebSocket por si só: valide a origem no handshake.
+    allowRequest: (req, callback) => {
+        const origin = req.headers.origin;
+        if (!origin) return callback(null, true);
+
+        let originHost;
+        try {
+            originHost = new URL(origin).host;
+        } catch (_) {
+            return callback(null, false);
+        }
+
+        const sameOrigin = originHost === req.headers.host;
+        callback(null, sameOrigin || allowedOrigins.includes(origin));
     },
     transports: ['websocket', 'polling']
 });
