@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 512" role="img" aria-labelledby="title desc">
+<title id="title">Império dos Reinos — sprites vetoriais</title><desc id="desc">Folha de sprites medieval com castelo, explorador, escudo, espadas, arqueiro, cavaleiro, floresta e montanhas. Fundo transparente.</desc>
+<defs>
+ <linearGradient id="gold" x2="0" y2="1"><stop stop-color="#ffe8a1"/><stop offset="1" stop-color="#b98232"/></linearGradient>
+ <linearGradient id="stone" x2="0" y2="1"><stop stop-color="#d7deea"/><stop offset="1" stop-color="#77869d"/></linearGradient>
+ <linearGradient id="steel" x2="1" y2="1"><stop stop-color="#f4f7ff"/><stop offset=".5" stop-color="#8ea1b9"/><stop offset="1" stop-color="#44566f"/></linearGradient>
+ <g id="castle">
+  <path d="M18 112V53h20V35h19v18h16v-31h24v31h16v-18h19v18h18v59z" fill="url(#stone)" stroke="#34445b" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M8 112V73h24v39M138 112V73h24v39" fill="#9aa8bc" stroke="#34445b" stroke-width="4"/>
+  <path d="M62 112V84q0-19 19-19t19 19v28" fill="#18243a" stroke="#34445b" stroke-width="4"/>
+  <path d="M81 18V3m-9 8h18" stroke="url(#gold)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M37 69h12v12H37zm76 0h12v12h-12z" fill="#f5d78d"/>
+  <path d="M80 45h20l-10 12z" fill="#a93232"/><path d="M90 42v16" stroke="#f4d17b" stroke-width="3"/>
+ </g>
+ <g id="explorer">
+  <circle cx="80" cy="27" r="18" fill="#d5a16f" stroke="#5c392d" stroke-width="4"/>
+  <path d="M58 25Q62 3 81 6q20 0 22 19l-11-6-16 5z" fill="#332c30"/>
+  <path d="M53 50 80 42 107 51l14 50H39z" fill="#1e5264" stroke="#26384d" stroke-width="4" stroke-linejoin="round"/>
+  <path d="m67 47 13 15 13-15 8 54H59z" fill="url(#gold)"/>
+  <path d="M45 62 24 83l10 9 24-19M105 62l20 21-9 10-24-20" fill="#d5a16f" stroke="#5c392d" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M60 101 55 125h18l7-20 7 20h18l-7-24" fill="#26364e" stroke="#18243a" stroke-width="4"/>
+  <path d="M128 48v76m-7-68h14m-14 13h14" stroke="url(#steel)" stroke-width="5" stroke-linecap="round"/>
+ </g>
+ <g id="shield">
+  <path d="M80 8 135 28v39q-3 40-55 66Q28 107 25 67V28z" fill="url(#steel)" stroke="#34445b" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M80 18v102M35 37l45 16 45-16" stroke="#f0ca71" stroke-width="7"/>
+  <path d="m80 34 11 22 24 4-18 17 4 24-21-12-21 12 4-24-18-17 24-4z" fill="#a93436" stroke="#682d31" stroke-width="3" stroke-linejoin="round"/>
+ </g>
+ <g id="swords">
+  <path d="m38 17 13-8 53 79-12 10z" fill="url(#steel)" stroke="#34445b" stroke-width="3"/>
+  <path d="m122 17-13-8-53 79 12 10z" fill="url(#steel)" stroke="#34445b" stroke-width="3"/>
+  <path d="m25 89 20-14 13 13-14 20zM99 88l13-13 20 14-19 19z" fill="url(#gold)" stroke="#785526" stroke-width="3"/>
+  <path d="m32 112 12-12 13 13-12 12zM101 113l13-13 12 12-13 13z" fill="#5b3c28" stroke="#2a2e38" stroke-width="3"/>
+  <path d="M49 9 37 21M109 9l12 12" stroke="#fff7d8" stroke-width="3"/>
+ </g>
+ <g id="archer">
+  <circle cx="72" cy="24" r="16" fill="#d5a16f" stroke="#5c392d" stroke-width="4"/>
+  <path d="M53 23Q54 4 73 6q15 0 19 16l-12-6-18 7z" fill="#4c3028"/>
+  <path d="M48 47 72 41 97 48l10 52H38z" fill="#477c55" stroke="#274d39" stroke-width="4"/>
+  <path d="m61 47 11 15 11-15 7 53H54z" fill="url(#gold)"/>
+  <path d="M48 60 30 82l9 9 20-20M95 60l14 15" fill="#d5a16f" stroke="#5c392d" stroke-width="4"/>
+  <path d="M119 17q30 38 0 76" fill="none" stroke="#8c5b32" stroke-width="5"/>
+  <path d="M117 16 119 95" stroke="url(#steel)" stroke-width="3"/>
+  <path d="M114 15l5-9 5 9z" fill="#d7deea"/>
+  <path d="M56 99 51 123h17l5-20 7 20h17l-7-24" fill="#26364e" stroke="#18243a" stroke-width="4"/>
+ </g>
+ <g id="knight">
+  <path d="M53 39Q46 7 79 5q34 2 28 34l-9 11H61z" fill="url(#steel)" stroke="#34445b" stroke-width="4"/>
+  <path d="M57 28h44l-8 12H65z" fill="#26364e"/><path d="M77 30h8" stroke="#f0ca71" stroke-width="4"/>
+  <path d="M48 49 80 40l33 10 12 54H36z" fill="#9b3438" stroke="#512b35" stroke-width="4"/>
+  <path d="m67 47 13 15 13-15 8 57H59z" fill="url(#steel)"/>
+  <path d="M43 58 24 79l12 12 22-19M108 58l19 20-11 12-22-19" fill="url(#steel)" stroke="#34445b" stroke-width="4"/>
+  <path d="M60 103 54 126h20l6-20 6 20h20l-7-23" fill="#34445b" stroke="#18243a" stroke-width="4"/>
+  <path d="M130 27v96m-8-79h16m-16 18h16" stroke="url(#gold)" stroke-width="5" stroke-linecap="round"/>
+ </g>
+ <g id="forest">
+  <path d="M17 112 46 57 75 112zM50 112 83 28l33 84zM94 112l25-50 25 50z" fill="#477c55" stroke="#244d3c" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M43 112V91h10v21m25 0V85h10v27m31 0V91h10v21" fill="#765033"/>
+  <path d="M18 113h132" stroke="#c4a36b" stroke-width="5" stroke-linecap="round"/>
+ </g>
+ <g id="mountains">
+  <path d="m5 116 46-77 27 40 28-58 51 95z" fill="#788ca5" stroke="#34445b" stroke-width="4" stroke-linejoin="round"/>
+  <path d="m36 65 15-26 17 25-14-7zM89 54l17-33 20 39-18-12z" fill="#f4f5f8"/>
+  <path d="M5 116h152" stroke="#8ab1c5" stroke-width="5" stroke-linecap="round"/>
+ </g>
+</defs>
+<rect width="1024" height="512" rx="20" fill="#0b1220"/>
+<g opacity=".22" stroke="#61718a" stroke-width="1"><path d="M0 128H1024M0 256H1024M0 384H1024"/><path d="M128 0V512M256 0V512M384 0V512M512 0V512M640 0V512M768 0V512M896 0V512"/></g>
+<g transform="translate(30 8) scale(.68)"><use href="#castle"/></g><g transform="translate(270 8) scale(.68)"><use href="#explorer"/></g><g transform="translate(520 8) scale(.68)"><use href="#shield"/></g><g transform="translate(770 8) scale(.68)"><use href="#swords"/></g>
+<g transform="translate(30 265) scale(.68)"><use href="#archer"/></g><g transform="translate(270 265) scale(.68)"><use href="#knight"/></g><g transform="translate(520 265) scale(.68)"><use href="#forest"/></g><g transform="translate(770 265) scale(.68)"><use href="#mountains"/></g>
+</svg>
