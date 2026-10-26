@@ -10,6 +10,7 @@ Jogo de estratégia medieval em português, iniciado no repositório NANDOBRTV/r
 - Missões com recompensas resgatáveis por reino.
 - Mapa de seis territórios com exploração e recompensas únicas.
 - Alianças compartilhadas entre jogadores (até 20 membros).
+- Gestão de aliança: lista de membros, transferência de liderança e remoção de membros pelo líder.
 - Batalhas online, relatos de combate e ranking de poder.
 - Histórico público de versões em [Atualizações do jogo](https://rpg-online-u92m.onrender.com/updates.html).
 - Cadastro e login por e-mail e senha com Supabase Auth.
@@ -27,9 +28,10 @@ Jogo de estratégia medieval em português, iniciado no repositório NANDOBRTV/r
 ## Próximas etapas
 1. Melhor balanceamento das batalhas e proteção antitrapaça no servidor.
 2. Mais territórios, missões de exploração e eventos.
-3. Gestão de alianças e temporadas de classificação.
+3. Temporadas de classificação e objetivos de aliança.
 
 ## Histórico
+- **v0.5.0:** gestão de alianças, transferência de liderança e remoção de membros.
 - **v0.4.0:** mapa explorável, alianças, batalhas online, relatos e ranking.
 - **v0.3.0:** cadastro/login, salvamento na nuvem e sincronização entre dispositivos via Supabase.
 - **v0.2.0:** página de atualizações e sistema inicial de missões.
