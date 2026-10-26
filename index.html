@@ -59,7 +59,7 @@ async function signInOrRegister(mode){if(authBusy)return;const email=document.ge
 document.getElementById('registerBtn').addEventListener('click',()=>signInOrRegister('register'));
 document.getElementById('loginBtn').addEventListener('click',()=>signInOrRegister('login'));
 document.getElementById('logoutBtn').addEventListener('click',async()=>{const {error}=await supabaseClient.auth.signOut();if(error)setAuthStatus(error.message,'error');else{await handleSignedInUser(null);showScreen('login')}});
-supabaseClient.auth.onAuthStateChange((_event,session)=>{setTimeout(()=>handleSignedInUser(session?.user||null),0)});
+supabaseClient.auth.onAuthStateChange((_event,session)=>{if(_event==='INITIAL_SESSION')return;setTimeout(()=>handleSignedInUser(session?.user||null),0)});
 setInterval(()=>{if(activeUid&&cloudReady){s.last=Date.now();persistLocal();queueCloudSave()}},30000);
 
 const missions=[{id:'upgrade',title:'Uma pedra de cada vez',desc:'Melhore uma construção até o nível 2.',reward:{wood:100,gold:30},done:()=>Object.values(s.buildings||{}).some(n=>n>=2)},{id:'army',title:'Forme seu primeiro esquadrão',desc:'Reúna pelo menos 10 soldados.',reward:{food:150,gold:50},done:()=>s.troops>=10},{id:'food',title:'Celeiro abastecido',desc:'Acumule 500 unidades de comida.',reward:{stone:100,gold:40},done:()=>s.food>=500}];
