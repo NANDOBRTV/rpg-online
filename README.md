@@ -5,6 +5,7 @@ Jogo de estratégia medieval em português, iniciado no repositório NANDOBRTV/r
 ## Protótipo atual
 - Interface responsiva para celular e computador.
 - Tela inicial, tela de login/cadastro e área de jogo separadas.
+- Tela de login personalizada com identidade visual medieval-futurista, campos acessíveis e atalhos separados para entrar, criar conta ou jogar como visitante.
 - Opção de jogar como visitante após a tela de login.
 - Fluxo do jogo: login, carregamento do reino, prólogo da história e mapa principal.
 - Mapa principal com atalhos organizados para Reino, Exploração, Alianças e Batalhas online.
@@ -35,6 +36,7 @@ Jogo de estratégia medieval em português, iniciado no repositório NANDOBRTV/r
 3. Temporadas de classificação e objetivos de aliança.
 
 ## Histórico
+- **v0.8.0:** redesenho responsivo da tela de login com visual medieval-futurista e navegação de acesso mais clara.
 - **v0.7.0:** fluxo login → carregamento → história → mapa principal, com atalhos distribuídos por área.
 - **v0.6.0:** separação inicial das telas de acesso e jogo.
 - **v0.5.0:** gestão de alianças, transferência de liderança e remoção de membros.
