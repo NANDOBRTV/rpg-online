@@ -184,11 +184,23 @@ socket.on('updateUI', () => { updateMenuUI(); });
 
 function addChatMessage(name, msg, color) {
     const div = document.createElement('div');
+    const label = document.createElement('span');
+    const author = document.createElement('b');
+
     div.style.marginBottom = '5px';
-    div.innerHTML = `<span style="color:${color}"><b>${name}:</b></span> ${msg}`;
+    // Use textContent para impedir que nomes/mensagens sejam interpretados como HTML.
+    const safeColor = typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)
+        ? color
+        : '#95a5a6';
+    label.style.color = safeColor;
+    author.textContent = String(name ?? 'Jogador') + ':';
+    label.appendChild(author);
+    div.appendChild(label);
+    div.appendChild(document.createTextNode(' ' + String(msg ?? '')));
+
     chatMessages.appendChild(div);
     chatMessages.scrollTop = chatMessages.scrollHeight;
-    
+
     // Limitar a 50 mensagens
     while (chatMessages.children.length > 50) {
         chatMessages.removeChild(chatMessages.firstChild);
