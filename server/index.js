@@ -59,25 +59,20 @@ let gameState = { enemies: [] };
 
 // ========== FUNÇÕES AUXILIARES ==========
 
-async function loadUserData(userId) {
-    try {
-        const user = await db.getUser(userId);
-        const inventory = await db.getInventory(userId);
-        const quests = await db.getQuests(userId);
-        const bestiary = await db.getBestiary(userId);
-        const skills = await db.getSkills(userId);
-
-        return {
-            ...user,
-            inventory,
-            quests,
-            bestiary,
-            skills
-        };
-    } catch (err) {
-        console.error('Erro ao carregar dados do usuário:', err);
-        return null;
+async function loadUserData(user) {
+    if (!user || !Number.isInteger(user.id)) {
+        throw new Error('Usuário inválido ao carregar dados do jogo');
     }
+
+    // As tabelas relacionadas usam users.id (ID numérico), não username.
+    const [inventory, quests, bestiary, skills] = await Promise.all([
+        db.getInventory(user.id),
+        db.getQuests(user.id),
+        db.getBestiary(user.id),
+        db.getSkills(user.id)
+    ]);
+
+    return { ...user, inventory, quests, bestiary, skills };
 }
 
 async function savePlayerData(player) {
@@ -146,23 +141,34 @@ io.on('connection', (socket) => {
 
     socket.on('register', async (data) => {
         try {
-            if (!data.user || data.user.length < 3) {
-                return socket.emit('msg', '❌ Nome deve ter pelo menos 3 caracteres');
-            }
-            if (!data.pass || data.pass.length < 4) {
-                return socket.emit('msg', '❌ Senha deve ter pelo menos 4 caracteres');
+            if (!data || typeof data !== 'object' || Array.isArray(data)) {
+                return socket.emit('msg', '❌ Dados de cadastro inválidos');
             }
 
-            const existingUser = await db.getUser(data.user);
+            const username = typeof data.user === 'string' ? data.user.trim() : '';
+            const password = typeof data.pass === 'string' ? data.pass : '';
+            const charClass = typeof data.charClass === 'string' ? data.charClass : 'ninja';
+
+            if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+                return socket.emit('msg', '❌ Use um nome de 3 a 20 caracteres: letras, números ou _');
+            }
+            if (password.length < 8 || password.length > 72) {
+                return socket.emit('msg', '❌ A senha deve ter entre 8 e 72 caracteres');
+            }
+            if (!Object.prototype.hasOwnProperty.call(CLASSES, charClass)) {
+                return socket.emit('msg', '❌ Classe de personagem inválida');
+            }
+
+            const existingUser = await db.getUser(username);
             if (existingUser) {
                 return socket.emit('msg', '❌ Usuário já existe');
             }
 
-            const hashedPassword = await bcrypt.hash(data.pass, 10);
-            const userId = await db.createUser(data.user, hashedPassword, data.charClass || 'ninja');
+            const hashedPassword = await bcrypt.hash(password, 10);
+            const userId = await db.createUser(username, hashedPassword, charClass);
 
             // Criar skills iniciais
-            const classSkills = CLASSES[data.charClass || 'ninja'].skills;
+            const classSkills = CLASSES[charClass].skills;
             for (const skill of classSkills) {
                 await db.addSkill(userId, skill);
             }
@@ -179,18 +185,28 @@ io.on('connection', (socket) => {
 
     socket.on('login', async (data) => {
         try {
-            const user = await db.getUser(data.user);
+            if (!data || typeof data !== 'object' || Array.isArray(data) ||
+                typeof data.user !== 'string' || typeof data.pass !== 'string') {
+                return socket.emit('msg', '❌ Usuário ou senha inválidos');
+            }
+
+            const username = data.user.trim();
+            const user = await db.getUser(username);
             if (!user || !(await bcrypt.compare(data.pass, user.password))) {
                 return socket.emit('msg', '❌ Usuário ou senha inválidos');
             }
 
-            const charClass = data.charClass || 'ninja';
+            // A classe persistida é a fonte confiável; não permita trocar de classe
+            // apenas enviando outro valor pelo cliente no login.
+            const charClass = Object.prototype.hasOwnProperty.call(CLASSES, user.class)
+                ? user.class
+                : 'ninja';
             const classData = CLASSES[charClass];
 
             const player = {
                 id: socket.id,
                 userId: user.id,
-                name: data.user,
+                name: username,
                 class: charClass,
                 room: user.last_map || 'vila',
                 x: 500,
@@ -218,7 +234,7 @@ io.on('connection', (socket) => {
             player.hp = player.maxHp;
 
             // Carregar dados adicionais
-            const fullData = await loadUserData(data.user);
+            const fullData = await loadUserData(user);
             player.inventory = fullData.inventory || [];
             player.quests = fullData.quests || [];
             player.bestiary = fullData.bestiary || [];
@@ -244,7 +260,8 @@ io.on('connection', (socket) => {
 
     socket.on('addStat', async (stat) => {
         const player = players[socket.id];
-        if (!player || player.statPoints <= 0) return;
+        const allowedStats = ['str', 'agi', 'int', 'vit'];
+        if (!player || player.statPoints <= 0 || !allowedStats.includes(stat)) return;
 
         player.stats[stat]++;
         player.statPoints--;
@@ -283,15 +300,24 @@ io.on('connection', (socket) => {
     socket.on('createClan', async (data) => {
         const player = players[socket.id];
         if (!player) return;
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
+            return socket.emit('msg', '❌ Dados do clã inválidos');
+        }
+
+        const clanName = typeof data.clanName === 'string' ? data.clanName.trim() : '';
+        const description = typeof data.description === 'string' ? data.description.trim().slice(0, 300) : '';
+        if (clanName.length < 3 || clanName.length > 30) {
+            return socket.emit('msg', '❌ O nome do clã deve ter entre 3 e 30 caracteres');
+        }
 
         const clanId = uuidv4().substring(0, 8);
         try {
-            await db.createClan(clanId, data.clanName, player.userId, data.description);
+            await db.createClan(clanId, clanName, player.userId, description);
             await db.addClanMember(clanId, player.userId, 'lider');
 
             clans[clanId] = {
                 id: clanId,
-                name: data.clanName,
+                name: clanName,
                 leader: player.name,
                 members: [player.name],
                 level: 1,
@@ -299,7 +325,7 @@ io.on('connection', (socket) => {
             };
 
             player.clan = clanId;
-            socket.emit('msg', `✓ Clã "${data.clanName}" criado com sucesso!`);
+            socket.emit('msg', `✓ Clã "${clanName}" criado com sucesso!`);
             socket.emit('updateUI');
         } catch (err) {
             console.error('Erro ao criar clã:', err);
@@ -310,6 +336,9 @@ io.on('connection', (socket) => {
     socket.on('joinClan', async (clanId) => {
         const player = players[socket.id];
         if (!player) return;
+        if (typeof clanId !== 'string' || !/^[a-f0-9-]{1,64}$/i.test(clanId)) {
+            return socket.emit('msg', '❌ ID do clã inválido');
+        }
 
         try {
             const clan = await db.getClan(clanId);
@@ -328,7 +357,7 @@ io.on('connection', (socket) => {
 
     socket.on('chat', (msg) => {
         const player = players[socket.id];
-        if (!player) return;
+        if (!player || typeof msg !== 'string') return;
 
         const cleanMsg = msg.substring(0, 100).trim();
         if (cleanMsg.length === 0) return;
@@ -342,17 +371,18 @@ io.on('connection', (socket) => {
 
     socket.on('input', (data) => {
         const player = players[socket.id];
-        if (!player || player.dead) return;
+        if (!player || player.dead || !data || typeof data !== 'object' || Array.isArray(data)) return;
 
-        if (data.vx !== undefined) {
-            player.vx = data.vx * (player.speed + (player.stats.agi * 0.3));
+        if (data.vx !== undefined && typeof data.vx === 'number' && Number.isFinite(data.vx)) {
+            const direction = Math.max(-1, Math.min(1, data.vx));
+            player.vx = direction * (player.speed + (player.stats.agi * 0.3));
         }
 
-        if (data.jump && player.y >= 420) {
+        if (data.jump === true && player.y >= 420) {
             player.vy = -16;
         }
 
-        if (data.attack && player.attackCD <= 0) {
+        if (data.attack === true && player.attackCD <= 0) {
             const dmg = player.damage + (player.stats.str * 2);
 
             gameState.enemies.forEach(enemy => {
