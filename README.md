@@ -4,6 +4,8 @@ Jogo de estratégia medieval em português, iniciado no repositório NANDOBRTV/r
 
 ## Protótipo atual
 - Interface responsiva para celular e computador.
+- Tela inicial, tela de login/cadastro e área de jogo separadas.
+- Opção de jogar como visitante.
 - Recursos: madeira, pedra, comida e ouro.
 - Construções: serraria, pedreira, fazenda e muralha.
 - Produção passiva e treinamento de infantaria.
@@ -31,6 +33,7 @@ Jogo de estratégia medieval em português, iniciado no repositório NANDOBRTV/r
 3. Temporadas de classificação e objetivos de aliança.
 
 ## Histórico
+- **v0.6.0:** tela inicial e tela de login separadas da área de jogo.
 - **v0.5.0:** gestão de alianças, transferência de liderança e remoção de membros.
 - **v0.4.0:** mapa explorável, alianças, batalhas online, relatos e ranking.
 - **v0.3.0:** cadastro/login, salvamento na nuvem e sincronização entre dispositivos via Supabase.
