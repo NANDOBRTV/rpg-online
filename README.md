@@ -7,7 +7,7 @@ Jogo de estratégia medieval em português, iniciado no repositório NANDOBRTV/r
 - Recursos: madeira, pedra, comida e ouro.
 - Construções: serraria, pedreira, fazenda e muralha.
 - Produção passiva e treinamento de infantaria.
-- Missões com recompensas resgatáveis uma vez por navegador.
+- Missões com recompensas resgatáveis por reino.\n- Mapa de seis territórios com exploração e recompensas únicas.\n- Alianças compartilhadas entre jogadores (até 20 membros).\n- Batalhas online, relatos de combate e ranking de poder.
 - Histórico público de versões em [Atualizações do jogo](https://rpg-online-u92m.onrender.com/updates.html).
 - Cadastro e login por e-mail e senha com Supabase Auth.
 - Salvamento do estado do reino no projeto Supabase separado `imperio-dos-reinos`.
